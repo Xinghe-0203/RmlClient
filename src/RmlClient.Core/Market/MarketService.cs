@@ -215,12 +215,45 @@ public sealed class MarketService
         return result;
     }
 
+    /// <summary>
+    /// 按 slug 在市场缓存里找 mod。
+    /// modinfo.json 的 updateUrl 形如 <c>.../api/v1/mods/&lt;slug&gt;/version.txt</c>，
+    /// 而市场 id 就是去掉连字符的 slug（<c>more-storages</c> → <c>morestorages</c>），
+    /// 所以两种写法都要能命中。
+    /// </summary>
+    public MarketMod? FindBySlug(string? slug)
+    {
+        if (string.IsNullOrWhiteSpace(slug) || _cached.Count == 0)
+        {
+            return null;
+        }
+
+        var normalized = slug.Replace("-", string.Empty);
+
+        foreach (var mod in _cached)
+        {
+            if (string.Equals(mod.Id, slug, StringComparison.OrdinalIgnoreCase))
+            {
+                return mod;
+            }
+        }
+
+        foreach (var mod in _cached)
+        {
+            if (string.Equals(mod.Id.Replace("-", string.Empty), normalized, StringComparison.OrdinalIgnoreCase))
+            {
+                return mod;
+            }
+        }
+
+        return null;
+    }
+
     /// <summary>判断某个市场 mod 是否已装、本地版本是多少。</summary>
     public (bool Installed, string? LocalVersion, bool Enabled) GetLocalState(
         MarketMod mod,
         IReadOnlyList<ModEntry> localMods)
-    {
-        foreach (var local in localMods)
+    {        foreach (var local in localMods)
         {
             var matchesId = local.MarketSlug?.Equals(mod.Id, StringComparison.OrdinalIgnoreCase) == true;
 

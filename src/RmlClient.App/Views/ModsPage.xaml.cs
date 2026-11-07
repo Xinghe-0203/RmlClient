@@ -20,6 +20,11 @@ public sealed partial class ModsPage : Page
     private string _query = string.Empty;
     private bool _translating;
 
+    /// <summary>slug（或文件名）→ 更新检查结果，用于在卡片上画「有新版本」角标。</summary>
+    private readonly Dictionary<string, ModUpdateResult> _updates = new(StringComparer.OrdinalIgnoreCase);
+
+    private bool _checkingUpdates;
+
     public ModsPage()
     {
         InitializeComponent();
@@ -109,8 +114,29 @@ public sealed partial class ModsPage : Page
         DropHintText.Text = L("mods.dropHint");
         OpenFolderButton.Content = L("mods.openFolder");
         RefreshButton.Content = L("common.refresh");
+        CheckUpdatesButton.Content = L("mods.checkUpdates");
+        UpdateAllButton.Content = L("mods.updateAll");
         EmptyTitle.Text = L("mods.empty");
         EmptyHint.Text = L("mods.emptyHint");
+        UpdateUpdateBanner();
+    }
+
+    /// <summary>
+    /// 更新提示条：只有查出有新版本时才显示。
+    /// 检查失败（例如 mod 已下架）不算「有更新」，不打扰用户。
+    /// </summary>
+    private void UpdateUpdateBanner()
+    {
+        var pending = _updates.Values.Count(r => r.UpdateAvailable);
+
+        if (pending == 0)
+        {
+            UpdateBanner.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        UpdateBanner.Visibility = Visibility.Visible;
+        UpdateBannerText.Text = string.Format(L("mods.updateBanner"), pending);
     }
 
     private void Reload()
@@ -132,6 +158,8 @@ public sealed partial class ModsPage : Page
 
         var enabled = _all.Count(m => m.IsEnabled);
         CountText.Text = $"{enabled} / {_all.Count}";
+
+        UpdateUpdateBanner();
 
         ModsList.Items.Clear();
 
@@ -230,6 +258,25 @@ public sealed partial class ModsPage : Page
             });
         }
 
+        // 有新版本时，在版本号后面挂一个绿色角标，写清新版本号。
+        if (_updates.TryGetValue(TitleKey(entry), out var update) && update.UpdateAvailable)
+        {
+            titleRow.Children.Add(new Border
+            {
+                Background = (Brush)Application.Current.Resources["SuccessBrush"],
+                CornerRadius = new CornerRadius(6),
+                Padding = new Thickness(7, 2, 7, 2),
+                VerticalAlignment = VerticalAlignment.Center,
+                Child = new TextBlock
+                {
+                    Text = string.Format(L("mods.newVersion"), update.LatestVersion),
+                    FontSize = 11,
+                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                    Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 255, 255)),
+                },
+            });
+        }
+
         textStack.Children.Add(titleRow);
 
         var subtitle = entry.ParseError is { Length: > 0 } error
@@ -287,6 +334,28 @@ public sealed partial class ModsPage : Page
         };
 
         actions.Children.Add(toggle);
+
+        // 只有查出新版本的 mod 才给「更新」按钮，避免每行都多一个按钮。
+        if (_updates.TryGetValue(TitleKey(entry), out var rowUpdate) && rowUpdate.UpdateAvailable)
+        {
+            var updateButton = new Button
+            {
+                Content = L("mods.updateOne"),
+                Style = (Style)Application.Current.Resources["SubtleButtonStyle"],
+                Height = 28,
+                Padding = new Thickness(12, 0, 12, 0),
+                FontSize = 12,
+                VerticalAlignment = VerticalAlignment.Center,
+                Tag = entry,
+            };
+
+            ToolTipService.SetToolTip(
+                updateButton,
+                string.Format(L("mods.newVersion"), rowUpdate.LatestVersion));
+
+            updateButton.Click += OnUpdateOneClick;
+            actions.Children.Add(updateButton);
+        }
 
         var uninstall = new Button
         {
@@ -421,6 +490,262 @@ public sealed partial class ModsPage : Page
     }
 
     private void OnRefreshClick(object sender, RoutedEventArgs e) => Reload();
+
+    // ===== 更新检查 =====
+
+    /// <summary>
+    /// 逐个查 <c>modinfo.json</c> 里的 <c>updateUrl</c>（就是
+    /// <c>raftmodding.com/api/v1/mods/&lt;slug&gt;/version.txt</c>），
+    /// 和本地版本比出「有新版本」的那些。
+    ///
+    /// 这是显式动作：只在用户点「检查更新」时联网，不做后台轮询 ——
+    /// 官方站点对密集请求不友好，而且用户没要求就不该偷偷发请求。
+    /// </summary>
+    private async void OnUpdateOneClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: ModEntry entry } button)
+        {
+            return;
+        }
+
+        var market = _services.Market;
+
+        // 市场缓存只在市场页加载过；这里首次更新时补一次，否则 FindBySlug 查不到。
+        market?.LoadFromDisk();
+
+        var target = market?.FindBySlug(entry.MarketSlug);
+
+        if (market is null || target is null)
+        {
+            await ShowMessageAsync(L("mods.updateOne"), L("mods.noUpdatable"));
+            return;
+        }
+
+        button.IsEnabled = false;
+
+        try
+        {
+            var wasEnabled = entry.IsEnabled;
+            var install = await market.InstallAsync(target, target.LatestVersion);
+
+            if (!install.Success)
+            {
+                _services.Logger.Warn("ModUpdate", $"{entry.DisplayName} 更新失败：{install.Message}");
+                await ShowMessageAsync(L("mods.updateOne"), install.Message);
+                return;
+            }
+
+            // 更新会覆盖同名文件，禁用状态要还原，否则更新后 mod 被悄悄启用。
+            if (!wasEnabled)
+            {
+                var updated = _services.Mods?.Scan()
+                    .FirstOrDefault(m => string.Equals(m.MarketSlug, entry.MarketSlug, StringComparison.OrdinalIgnoreCase));
+
+                if (updated is not null && updated.IsEnabled)
+                {
+                    _services.Mods?.SetEnabled(updated, false);
+                }
+            }
+
+            _updates.Remove(TitleKey(entry));
+            _services.Logger.Info("ModUpdate", $"{entry.DisplayName} 已更新到 {target.LatestVersion?.Version}。");
+            Reload();
+        }
+        catch (Exception ex)
+        {
+            _services.Logger.Warn("ModUpdate", $"{entry.DisplayName} 更新失败：{ex.Message}");
+            await ShowMessageAsync(L("mods.updateOne"), ex.Message);
+        }
+        finally
+        {
+            button.IsEnabled = true;
+        }
+    }
+
+    private async void OnCheckUpdatesClick(object sender, RoutedEventArgs e)
+    {
+        if (_checkingUpdates || _services.Mods is null)
+        {
+            return;
+        }
+
+        _checkingUpdates = true;
+        CheckUpdatesButton.IsEnabled = false;
+        UpdateAllButton.IsEnabled = false;
+
+        var progress = new Progress<int>(done =>
+        {
+            // Progress<T> 是异步投递的，最后一次 Report 可能在检查结束后才到，
+            // 那会把 RebuildList 写好的计数又覆盖成「正在检查…」，所以这里要守一道。
+            if (!_checkingUpdates)
+            {
+                return;
+            }
+
+            // 总数取当前有 updateUrl 的条目，和 ModUpdateChecker 内部过滤条件一致。
+            var total = _all.Count(m => m.Info?.UpdateUrl is { Length: > 0 });
+            CountText.Text = string.Format(L("mods.checkingUpdates"), done, total);
+        });
+
+        try
+        {
+            var checker = new ModUpdateChecker(logger: _services.Logger);
+            var results = await checker.CheckAsync(_all, progress);
+
+            _updates.Clear();
+            foreach (var result in results)
+            {
+                _updates[TitleKey(result.Mod)] = result;
+            }
+
+            var pending = results.Count(r => r.UpdateAvailable);
+            var failed = results.Count(r => r.Error is not null);
+
+            _services.Logger.Info(
+                "ModUpdate",
+                $"检查完成：{results.Count} 个可查，{pending} 个有更新，{failed} 个查询失败。");
+
+            // 这里必须显式把进度文字改回来 —— RebuildList 会重设 CountText，
+            // 但空列表/过滤分支可能提前 return，进度文字就会一直留在界面上。
+            RebuildList();
+
+            if (pending == 0)
+            {
+                await ShowMessageAsync(L("mods.checkUpdates"), L("mods.upToDate"));
+            }
+        }
+        catch (Exception ex)
+        {
+            _services.Logger.Warn("ModUpdate", $"检查模组更新失败：{ex.Message}");
+            await ShowMessageAsync(L("mods.checkUpdates"), ex.Message);
+        }
+        finally
+        {
+            _checkingUpdates = false;
+            CheckUpdatesButton.IsEnabled = true;
+            UpdateAllButton.IsEnabled = true;
+            RebuildList();
+        }    }
+
+    /// <summary>把所有有新版本的 mod 依次更新（走市场下载，保留原启用状态）。</summary>
+    private async void OnUpdateAllClick(object sender, RoutedEventArgs e)
+    {
+        var pending = _updates.Values.Where(r => r.UpdateAvailable).ToList();
+        if (pending.Count == 0)
+        {
+            return;
+        }
+
+        var market = _services.Market;
+        if (market is null)
+        {
+            await ShowMessageAsync(L("mods.updateAll"), L("mods.noUpdatable"));
+            return;
+        }
+
+        // 市场缓存只在市场页加载过；这里首次更新时补一次，否则 FindBySlug 查不到。
+        market.LoadFromDisk();
+
+        if (!market.HasData)
+        {
+            await ShowMessageAsync(L("mods.updateAll"), L("mods.noUpdatable"));
+            return;
+        }
+
+        UpdateAllButton.IsEnabled = false;
+        CheckUpdatesButton.IsEnabled = false;
+
+        var ok = 0;
+        var failed = 0;
+
+        try
+        {
+            foreach (var result in pending)
+            {
+                var slug = result.Mod.MarketSlug;
+                var target = market.FindBySlug(slug);
+
+                if (target is null)
+                {
+                    // 市场缓存里没有（未刷新过或已下架），跳过而不是报错打断整批。
+                    _services.Logger.Warn("ModUpdate", $"{result.Mod.DisplayName} 在市场里找不到，跳过。");
+                    failed++;
+                    continue;
+                }
+
+                var wasEnabled = result.Mod.IsEnabled;
+                var install = await market.InstallAsync(target, target.LatestVersion);
+
+                if (install.Success)
+                {
+                    ok++;
+                    _services.Logger.Info("ModUpdate", $"{result.Mod.DisplayName} 已更新到 {target.LatestVersion?.Version}。");
+                }
+                else
+                {
+                    failed++;
+                    _services.Logger.Warn("ModUpdate", $"{result.Mod.DisplayName} 更新失败：{install.Message}");
+                }
+
+                // Install 会覆盖同名文件，禁用状态需要还原，否则更新后 mod 会被悄悄启用。
+                if (!wasEnabled)
+                {
+                    var updated = _services.Mods?.Scan()
+                        .FirstOrDefault(m => string.Equals(m.MarketSlug, slug, StringComparison.OrdinalIgnoreCase));
+
+                    if (updated is not null && updated.IsEnabled)
+                    {
+                        _services.Mods?.SetEnabled(updated, false);
+                    }
+                }
+            }
+
+            _updates.Clear();
+            Reload();
+
+            var summary = failed == 0
+                ? string.Format(L("mods.installed"), ok)
+                : $"{string.Format(L("mods.installed"), ok)} / {failed} ✗";
+
+            await ShowMessageAsync(L("mods.updateAll"), summary);
+        }
+        finally
+        {
+            UpdateAllButton.IsEnabled = true;
+            CheckUpdatesButton.IsEnabled = true;
+        }
+    }
+
+    private async Task ShowMessageAsync(string title, string message)
+    {
+        if (XamlRoot is null)
+        {
+            return;
+        }
+
+        var dialog = new ContentDialog
+        {
+            XamlRoot = XamlRoot,
+            Title = title,
+            Content = new TextBlock
+            {
+                Text = message,
+                TextWrapping = TextWrapping.Wrap,
+                IsTextSelectionEnabled = true,
+            },
+            CloseButtonText = L("common.close"),
+            DefaultButton = ContentDialogButton.Close,
+        };
+
+        try
+        {
+            await dialog.ShowAsync();
+        }
+        catch (Exception ex)
+        {
+            _services.Logger.Warn("Mods", $"对话框显示失败：{ex.Message}");
+        }
+    }
 
     private void OnOpenFolderClick(object sender, RoutedEventArgs e)
     {

@@ -6,7 +6,8 @@ param(
     [int]$Index = 0,
     [string]$Out = '',
     [int]$WaitMs = 3000,
-    [string]$TypeLike = 'Button|CheckBox|RadioButton'
+    [string]$TypeLike = 'Button|CheckBox|RadioButton',
+    [switch]$Exact
 )
 
 Add-Type -AssemblyName System.Drawing
@@ -40,7 +41,13 @@ foreach ($el in $all) {
             if ($id -ne $AutomationId) { continue }
         } else {
             if ($t -notmatch $TypeLike) { continue }
-            if ($NameLike -and -not ($n -like "*$NameLike*")) { continue }
+            if ($NameLike) {
+                if ($Exact) {
+                    if ($n -ne $NameLike) { continue }
+                } else {
+                    if (-not ($n -like "*$NameLike*")) { continue }
+                }
+            }
         }
         $hits += $el
     } catch { }

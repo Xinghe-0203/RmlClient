@@ -132,7 +132,6 @@
         </Setter>
     </Style>
     <!-- 次级按钮：透明底 + 细描边 -->
-    <!-- 次级按钮：透明底 + 细描边 -->
     <Style x:Key="SubtleButtonStyle" TargetType="Button">
         <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
         <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
@@ -211,7 +210,6 @@
         <Setter Property="PlaceholderForeground" Value="{StaticResource TextMutedBrush}" />
     </Style>
     <!-- ============ 导航项 ============ -->
-    <!-- ============ 导航项 ============ -->
 
     <Style x:Key="NavItemButtonStyle" TargetType="Button">
         <Setter Property="HorizontalAlignment" Value="Stretch" />
@@ -284,7 +282,6 @@
         </Setter>
     </Style>
     <!-- ============ 进度条 ============ -->
-    <!-- ============ 进度条 ============ -->
 
     <Style x:Key="AccentProgressBarStyle" TargetType="ProgressBar">
         <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
@@ -292,7 +289,6 @@
         <Setter Property="Height" Value="6" />
         <Setter Property="CornerRadius" Value="3" />
     </Style>
-    <!-- ============ 开关 ============ -->
     <!-- ============ 开关 ============ -->
 
     <Style x:Key="CompactToggleSwitchStyle" TargetType="ToggleSwitch">

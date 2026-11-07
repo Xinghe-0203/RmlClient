@@ -57,6 +57,20 @@ public sealed partial class MainWindow : Window
         Closed += OnClosed;
         AppWindow.Closing += OnAppWindowClosing;
 
+        // 第二个实例被启动时，它会 PostMessage 过来；这里把窗口叫回前台，
+        // 让用户看起来就是「又打开了原来的窗口」。
+        MinSizeHelper.ShowRequested = () =>
+        {
+            try
+            {
+                RestoreFromTray();
+            }
+            catch (Exception ex)
+            {
+                services.Logger.Warn("Window", $"响应重复启动失败：{ex.Message}");
+            }
+        };
+
         // 导航按钮的模板要等窗口真正布局完才套用，
         // 构造期调用 GoToState 会被静默忽略，所以加载完成后再重放一次选中态。
         // 注意：引导流程里 ContentFrame 装的是 OnboardingPage，
@@ -332,9 +346,11 @@ public sealed partial class MainWindow : Window
 
     private void OnClosed(object sender, WindowEventArgs args)
     {
+        MinSizeHelper.ShowRequested = null;
         _services.Localization.LanguageChanged -= OnLanguageChanged;
         _tray?.Dispose();
         _tray = null;
         _services.Dispose();
+        SingleInstance.Release();
     }
 }

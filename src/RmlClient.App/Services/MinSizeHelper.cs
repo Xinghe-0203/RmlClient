@@ -17,6 +17,12 @@ internal static class MinSizeHelper
     private static readonly Dictionary<IntPtr, (int Width, int Height)> Constraints = new();
     private static readonly SubclassProc Proc = SubclassCallback;
 
+    /// <summary>
+    /// 收到「另一个实例被启动了」的通知时回调（主线程）。
+    /// 由 <see cref="Apply"/> 一并挂上，省得再装一个子类。
+    /// </summary>
+    public static Action? ShowRequested { get; set; }
+
     public static void Apply(IntPtr hwnd, int minWidth, int minHeight)
     {
         Constraints[hwnd] = (minWidth, minHeight);
@@ -37,6 +43,22 @@ internal static class MinSizeHelper
             info.ptMinTrackSize.X = limit.Width;
             info.ptMinTrackSize.Y = limit.Height;
             Marshal.StructureToPtr(info, lParam, fDeleteOld: false);
+            return IntPtr.Zero;
+        }
+
+        // 第二个实例启动时用 PostMessage 发这个消息过来，把窗口叫回前台。
+        // 消息在窗口线程上处理，所以可以直接碰 UI。
+        if (uMsg == SingleInstance.WmShowWindow)
+        {
+            try
+            {
+                ShowRequested?.Invoke();
+            }
+            catch (Exception)
+            {
+                // 回调里出错不该影响窗口消息链。
+            }
+
             return IntPtr.Zero;
         }
 

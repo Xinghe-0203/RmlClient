@@ -15,6 +15,7 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
@@ -36,6 +37,10 @@
                          Width="220"
                          PlaceholderText="搜索已安装的 mod"
                          TextChanged="OnSearchChanged" />
+                <Button x:Name="CheckUpdatesButton"
+                        Style="{StaticResource SubtleButtonStyle}"
+                        Height="34" Padding="14,0"
+                        Click="OnCheckUpdatesClick" />
                 <Button x:Name="OpenFolderButton"
                         Style="{StaticResource SubtleButtonStyle}"
                         Height="34" Padding="14,0"
@@ -47,9 +52,43 @@
             </StackPanel>
         </Grid>
 
+        <!-- 更新提示条：检查出有新版本时才显示 -->
+        <Border x:Name="UpdateBanner"
+                Grid.Row="1"
+                Visibility="Collapsed"
+                CornerRadius="{StaticResource ControlCornerRadius}"
+                BorderBrush="{StaticResource SuccessBrush}"
+                BorderThickness="1"
+                Background="{StaticResource SurfaceAltBrush}"
+                Padding="16,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
+                    <TextBlock Text="&#xE895;"
+                               FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
+                               FontSize="14"
+                               Foreground="{StaticResource SuccessBrush}"
+                               VerticalAlignment="Center" />
+                    <TextBlock x:Name="UpdateBannerText"
+                               Style="{StaticResource CaptionTextStyle}"
+                               VerticalAlignment="Center" />
+                </StackPanel>
+
+                <Button x:Name="UpdateAllButton"
+                        Grid.Column="1"
+                        Style="{StaticResource AccentButtonStyle}"
+                        Height="30" Padding="14,0" FontSize="12"
+                        Click="OnUpdateAllClick" />
+            </Grid>
+        </Border>
+
         <!-- 拖入提示 -->
         <Border x:Name="DropHint"
-                Grid.Row="1"
+                Grid.Row="2"
                 CornerRadius="{StaticResource ControlCornerRadius}"
                 BorderBrush="{StaticResource BorderBrush}"
                 BorderThickness="1"
@@ -66,7 +105,7 @@
         </Border>
 
         <!-- 列表 -->
-        <Grid Grid.Row="2">
+        <Grid Grid.Row="3">
             <ListView x:Name="ModsList"
                       SelectionMode="None"
                       IsItemClickEnabled="False"

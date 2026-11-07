@@ -35,6 +35,15 @@ public partial class App : Application
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
+        // 已有实例在跑就直接退出，并把它的窗口提到前台。
+        // 客户端驻留托盘，用户很可能从开始菜单再点一次 ——
+        // 不加锁会出现多个托盘图标抢同一份 config.ini。
+        if (!SingleInstance.TryAcquire())
+        {
+            Exit();
+            return;
+        }
+
         try
         {
             Services = new AppServices();

@@ -91,12 +91,23 @@
                                     Style="{StaticResource AccentButtonStyle}"
                                     MinWidth="180"
                                     Height="44"
+                                    AutomationProperties.AutomationId="home.play"
                                     Click="OnPlayClick">
                                 <StackPanel Orientation="Horizontal" Spacing="10">
-                                    <TextBlock Text="&#xE768;"
-                                               FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
-                                               FontSize="15"
-                                               VerticalAlignment="Center" />
+                                    <Grid Width="16" Height="16" VerticalAlignment="Center">
+                                        <TextBlock x:Name="PlayIcon"
+                                                   Text="&#xE768;"
+                                                   FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
+                                                   FontSize="15"
+                                                   HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center" />
+                                        <ProgressRing x:Name="PlaySpinner"
+                                                      Width="16"
+                                                      Height="16"
+                                                      IsActive="False"
+                                                      Visibility="Collapsed"
+                                                      Foreground="{StaticResource TextPrimaryBrush}" />
+                                    </Grid>
                                     <TextBlock x:Name="PlayButtonText"
                                                Text="启动游戏"
                                                FontSize="14"
