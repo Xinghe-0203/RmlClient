@@ -48,6 +48,7 @@ public sealed class AppServices : IDisposable
         Translation = new TranslationService(Paths);
         MarketTitles = new TitleTranslator(Paths, Translation);
         LocalModTitles = new TitleTranslator(Paths, Translation, "local-mod-titles.json");
+        ClientUpdater = new ClientUpdater(Paths);
 
         // 配置里已有有效游戏路径时立刻建好 mod / 市场服务，
         // 否则首屏「模组 0/0」、市场页空白，用户会以为程序没读到数据。
@@ -91,6 +92,9 @@ public sealed class AppServices : IDisposable
 
     /// <summary>已安装模组的标题翻译表（键 = slug 或文件名）。</summary>
     public TitleTranslator LocalModTitles { get; }
+
+    /// <summary>客户端自身的版本检查与安装包下载（GitHub Releases）。</summary>
+    public ClientUpdater ClientUpdater { get; }
 
     public ModRepository? Mods { get; private set; }
 

@@ -35,8 +35,8 @@
 
   <ItemGroup>
     <ApplicationDefinition Include="App.xaml" SubType="Designer" Generator="MSBuild:Compile" />
-    <!-- 默认 Page 通配会把 App.xaml 也收进来，导致同一文件既是 Application 又是 Page，
-         XamlCompiler 会以退出码 1 静默失败。这里显式剔除。 -->
+    <!-- 默认的 Page 通配会把 App.xaml 也收进来，导致同一文件既是 Application 又是 Page，
+         XamlCompiler 会以退出码 1 静默失败。这里显式排除。 -->
     <Page Remove="App.xaml" />
   </ItemGroup>
 

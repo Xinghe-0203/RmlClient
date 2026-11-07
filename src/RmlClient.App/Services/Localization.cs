@@ -78,6 +78,16 @@ public sealed class Localization
         ["home.openFolder"] = ("打开目录", "Open folder"),
         ["home.openModsFolder"] = ("打开模组目录", "Open mods folder"),
 
+        // 客户端自身更新（GitHub Releases）
+        ["home.clientUpdate"] = ("客户端有新版本 {0}", "Client version {0} available"),
+        ["home.clientUpdateDownload"] = ("下载更新", "Download update"),
+        ["home.clientUpdateNotes"] = ("更新说明", "Release notes"),
+        ["home.clientUpdateDownloading"] = ("正在下载安装包…", "Downloading installer…"),
+        ["home.clientUpdateReady"] = ("安装包已下载，是否立即运行安装程序？", "Installer downloaded. Run it now?"),
+        ["home.clientUpdateFailed"] = ("下载更新失败", "Failed to download the update"),
+        ["home.clientUpdateCurrent"] = ("客户端已是最新版本", "Client is up to date"),
+        ["home.clientUpdateUnavailable"] = ("暂时无法检查客户端更新", "Unable to check for client updates"),
+
         // 模组
         ["mods.title"] = ("模组", "Mods"),
         ["mods.count"] = ("共 {0} 个", "{0} total"),

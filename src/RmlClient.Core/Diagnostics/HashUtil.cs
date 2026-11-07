@@ -69,6 +69,21 @@ public static class HashUtil
         return ToHexUpper(sha.ComputeHash(stream));
     }
 
+    public static async Task<string> Sha256FileAsync(string path, CancellationToken ct = default)
+    {
+        await using var stream = new FileStream(
+            path,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.Read,
+            bufferSize: 1024 * 128,
+            FileOptions.Asynchronous | FileOptions.SequentialScan);
+
+        using var sha = SHA256.Create();
+        var hash = await sha.ComputeHashAsync(stream, ct).ConfigureAwait(false);
+        return ToHexUpper(hash);
+    }
+
     public static string Sha512String(string value)
     {
         var bytes = SHA512.HashData(Encoding.UTF8.GetBytes(value));

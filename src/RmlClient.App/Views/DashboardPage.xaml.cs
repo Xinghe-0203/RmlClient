@@ -15,6 +15,7 @@ public sealed partial class DashboardPage : Page
 {
     private AppServices _services = null!;
     private CoreUpdateStatus? _updateStatus;
+    private ClientUpdateStatus? _clientUpdate;
     private bool _busy;
 
     public DashboardPage()
@@ -39,6 +40,7 @@ public sealed partial class DashboardPage : Page
         if (_services.Config.Client.CheckUpdatesOnStartup)
         {
             await CheckUpdatesAsync(silent: true);
+            await CheckClientUpdatesAsync();
         }
     }
 
@@ -278,6 +280,142 @@ public sealed partial class DashboardPage : Page
                 _services.Logger.Error("Update", result.Message);
                 await ShowDialogAsync(L("common.error"), result.Message);
             }
+        }
+        finally
+        {
+            ProgressCard.Visibility = Visibility.Collapsed;
+            ProgressBar.Value = 0;
+            SetBusy(false);
+        }
+    }
+
+    // ===== 客户端自身更新（GitHub Releases）=====
+
+    /// <summary>检查客户端是否有新版本；失败只记日志，不打扰用户。</summary>
+    private async Task CheckClientUpdatesAsync()
+    {
+        try
+        {
+            var status = await _services.ClientUpdater.CheckAsync();
+
+            if (status.Error is { Length: > 0 } error)
+            {
+                // 仓库还没建 Release、网络不通、账号异常都会走到这里。
+                // 客户端更新是附加能力，失败不应该在首屏弹窗。
+                _services.Logger.Warn("ClientUpdate", $"检查客户端更新失败：{error}");
+                ClientUpdateBanner.Visibility = Visibility.Collapsed;
+                return;
+            }
+
+            _clientUpdate = status.UpdateAvailable ? status : null;
+
+            if (!status.UpdateAvailable)
+            {
+                ClientUpdateBanner.Visibility = Visibility.Collapsed;
+                return;
+            }
+
+            ClientUpdateTitle.Text = string.Format(L("home.clientUpdate"), status.LatestVersion);
+            ClientUpdateDetail.Text = string.IsNullOrWhiteSpace(status.Changelog)
+                ? $"{L("home.clientUpdateDownload")} · {status.Installer?.Name}"
+                : FirstLines(status.Changelog, 2);
+            ClientUpdateBanner.Visibility = Visibility.Visible;
+
+            _services.Logger.Info("ClientUpdate", $"发现客户端新版本 {status.LatestVersion}");
+        }
+        catch (Exception ex)
+        {
+            _services.Logger.Warn("ClientUpdate", $"检查客户端更新异常：{ex.Message}");
+            ClientUpdateBanner.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    private static string FirstLines(string text, int count)
+    {
+        var lines = text
+            .Replace("\r\n", "\n")
+            .Split('\n')
+            .Select(l => l.Trim())
+            .Where(l => l.Length > 0)
+            .Take(count);
+
+        return string.Join(Environment.NewLine, lines);
+    }
+
+    private async void OnOpenClientReleaseClick(object sender, RoutedEventArgs e)
+    {
+        var url = _clientUpdate?.ReleaseUrl ?? ClientVersion.ReleasesUrl;
+
+        try
+        {
+            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            _services.Logger.Warn("ClientUpdate", $"打开更新页面失败：{ex.Message}");
+        }
+
+        await Task.CompletedTask;
+    }
+
+    private async void OnDownloadClientUpdateClick(object sender, RoutedEventArgs e)
+    {
+        if (_clientUpdate?.Installer is not { } asset)
+        {
+            await ShowDialogAsync(L("common.warning"), L("home.clientUpdateUnavailable"));
+            return;
+        }
+
+        if (_busy)
+        {
+            return;
+        }
+
+        SetBusy(true, L("home.clientUpdateDownloading"));
+        ProgressCard.Visibility = Visibility.Visible;
+        ProgressLabel.Text = L("home.clientUpdateDownloading");
+
+        try
+        {
+            var progress = new Progress<DownloadProgress>(p =>
+            {
+                ProgressBar.Value = p.Fraction * 100;
+                ProgressDetail.Text = $"{asset.Name}  {p.HumanReadable}";
+            });
+
+            var path = await _services.ClientUpdater.DownloadInstallerAsync(asset, progress);
+
+            if (path is null)
+            {
+                await ShowDialogAsync(L("common.error"), L("home.clientUpdateFailed"));
+                return;
+            }
+
+            _services.Logger.Info("ClientUpdate", $"安装包已下载：{path}");
+
+            var dialog = new ContentDialog
+            {
+                XamlRoot = XamlRoot,
+                Title = L("common.success"),
+                Content = new TextBlock
+                {
+                    Text = L("home.clientUpdateReady"),
+                    TextWrapping = TextWrapping.Wrap,
+                },
+                PrimaryButtonText = L("common.yes"),
+                CloseButtonText = L("common.no"),
+                DefaultButton = ContentDialogButton.Primary,
+            };
+
+            if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+            {
+                ClientUpdater.LaunchInstaller(path);
+            }
+        }
+        catch (Exception ex)
+        {
+            _services.Logger.Error("ClientUpdate", "下载客户端更新失败", ex);
+            await ShowDialogAsync(L("common.error"), ex.Message);
         }
         finally
         {

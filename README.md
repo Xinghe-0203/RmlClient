@@ -20,6 +20,7 @@
 | 设置 | 语言、分支、游戏路径、注入方式、托盘、崩溃日志上传、跳过 Unity 启动画面 |
 | 引导 | 首次启动 4 步向导：定位游戏 → 安装 Core → 注入加载器 → 同意条款并完成 |
 | 托盘 | 关闭到托盘，托盘菜单可打开主界面 / 退出 |
+| 自更新 | 查本仓库 GitHub Releases 的最新版本，发现新版时首页提示，可一键下载安装包并运行 |
 
 ---
 
@@ -164,3 +165,17 @@ dotnet publish src\RmlClient.App\RmlClient.App.csproj -c Release -r win-x64 -p:P
 - 市场数据是全量 917 KB JSON，服务端 `page`/`limit`/`search` 参数全部无效，只能本地筛选。
 - 只支持 Windows x64；Unity 类定义包固定为 `2021.3.45f2` 对应的 `classdata.tpk`，游戏大版本升级后需要换包。
 - 翻译依赖 Bing 网页版接口（非公开 API，字段名与 token 机制可能随时变化）；接口不可用时自动回落到 MyMemory，两者都失败则显示原文。译文由机器翻译产生，仅作参考。
+- 自更新走 GitHub Releases API（`api.github.com`，国内可能需代理）。检查失败时只在日志留 WARN，不影响其它功能；仓库不可达时首页不会出现更新提示条。
+
+## 自更新
+
+| 项 | 说明 |
+| --- | --- |
+| 版本来源 | `ClientVersion.Current`（编译期常量），发版时同步改这里 |
+| 检查接口 | `GET https://api.github.com/repos/Xinghe-0203/RmlClient/releases/latest`，取 `tag_name` 比对 |
+| 安装包选择 | Release 资产里优先取名字含 `Setup` 且以 `.exe` 结尾的，没有则取第一个 `.exe` |
+| 完整性 | 资产若带 `digest`（`sha256:...`，GitHub 新版本会提供）则校验 SHA256，否则只比对文件长度 |
+| 下载地址 | 只允许 `github.com`、`objects.githubusercontent.com`、`release-assets.githubusercontent.com` |
+| 失败降级 | 检查失败只记 `ClientUpdate` WARN，首页不显示提示条，不弹窗 |
+
+> 发版流程：改 `ClientVersion.Current` → 重新构建 → 打包 → 建 tag（如 `v1.0.1`）→ 创建 Release → 上传 `RmlClient-Setup-x.y.z.exe`。客户端下次启动即可看到更新提示。
