@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="RmlClient.App.Views.OnboardingPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Background="Transparent">
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="300" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <!-- 左侧：步骤列表 -->
+        <Border Grid.Column="0"
+                Background="{StaticResource SurfaceBrush}"
+                BorderBrush="{StaticResource BorderBrush}"
+                BorderThickness="0,0,1,0"
+                Padding="24,28">
+            <StackPanel Spacing="6">
+                <TextBlock Text="RML"
+                           FontFamily="{StaticResource DisplayFontFamily}"
+                           FontSize="26"
+                           FontWeight="Bold"
+                           Foreground="{StaticResource TextPrimaryBrush}" />
+                <TextBlock x:Name="BrandText"
+                           Style="{StaticResource MutedTextStyle}"
+                           Margin="0,0,0,20" />
+
+                <StackPanel x:Name="StepList" Spacing="2" />
+            </StackPanel>
+        </Border>
+
+        <!-- 右侧：当前步骤 -->
+        <Grid Grid.Column="1" Padding="36,32">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
+                <StackPanel x:Name="StepHost" Spacing="16" MaxWidth="520" HorizontalAlignment="Left">
+                    <TextBlock x:Name="StepTitle"
+                               Style="{StaticResource HeadlineTextStyle}" />
+                    <TextBlock x:Name="StepHint"
+                               Style="{StaticResource BodyTextStyle}"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               TextWrapping="Wrap" />
+
+                    <!-- 步骤 1：找到游戏 -->
+                    <StackPanel x:Name="GameSection" Spacing="10" Visibility="Collapsed">
+                        <Border Style="{StaticResource InsetCardStyle}" Padding="14,12">
+                            <StackPanel Spacing="4">
+                                <TextBlock x:Name="FoundGameLabel" Style="{StaticResource CaptionTextStyle}" />
+                                <TextBlock x:Name="FoundGamePath"
+                                           Style="{StaticResource BodyTextStyle}"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Border>
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <Button x:Name="DetectButton" Style="{StaticResource SubtleButtonStyle}"
+                                    Height="34" Padding="14,0" Click="OnDetectClick" />
+                            <Button x:Name="BrowseButton" Style="{StaticResource SubtleButtonStyle}"
+                                    Height="34" Padding="14,0" Click="OnBrowseClick" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- 步骤 2：安装 Core -->
+                    <StackPanel x:Name="CoreSection" Spacing="10" Visibility="Collapsed">
+                        <Border Style="{StaticResource InsetCardStyle}" Padding="14,12">
+                            <StackPanel Spacing="6">
+                                <TextBlock x:Name="CoreStateText" Style="{StaticResource BodyTextStyle}" />
+                                <ProgressBar x:Name="CoreProgress" Minimum="0" Maximum="100" Value="0"
+                                             Style="{StaticResource AccentProgressBarStyle}" />
+                                <TextBlock x:Name="CoreDetailText" Style="{StaticResource CaptionTextStyle}" />
+                            </StackPanel>
+                        </Border>
+                        <Button x:Name="InstallCoreButton" Style="{StaticResource AccentButtonStyle}"
+                                Height="38" Padding="18,0" Click="OnInstallCoreClick" />
+                    </StackPanel>
+
+                    <!-- 步骤 3：注入加载器 -->
+                    <StackPanel x:Name="InjectSection" Spacing="10" Visibility="Collapsed">
+                        <Border Style="{StaticResource InsetCardStyle}" Padding="14,12">
+                            <StackPanel Spacing="4">
+                                <TextBlock x:Name="InjectStateText" Style="{StaticResource BodyTextStyle}" />
+                                <TextBlock x:Name="InjectDetailText"
+                                           Style="{StaticResource CaptionTextStyle}"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Border>
+                        <Button x:Name="InjectButton" Style="{StaticResource AccentButtonStyle}"
+                                Height="38" Padding="18,0" Click="OnInjectClick" />
+                    </StackPanel>
+
+                    <!-- 步骤 4：准备就绪 -->
+                    <StackPanel x:Name="DoneSection" Spacing="10" Visibility="Collapsed">
+                        <Border Style="{StaticResource InsetCardStyle}" Padding="14,12">
+                            <StackPanel Spacing="6">
+                                <TextBlock x:Name="DoneSummary" Style="{StaticResource BodyTextStyle}" TextWrapping="Wrap" />
+                                <TextBlock x:Name="DoneHint" Style="{StaticResource CaptionTextStyle}" TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- 步骤 4 额外：条款 -->
+                    <CheckBox x:Name="TermsCheck"
+                              Visibility="Collapsed"
+                              Click="OnTermsChanged" />
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- 底部导航 -->
+            <Grid Grid.Row="1" Margin="0,20,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <Button x:Name="BackButton"
+                        Grid.Column="0"
+                        Style="{StaticResource SubtleButtonStyle}"
+                        Height="38" Padding="18,0"
+                        Click="OnBackClick" />
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6"
+                            HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <Ellipse x:Name="Dot1" Width="7" Height="7" />
+                    <Ellipse x:Name="Dot2" Width="7" Height="7" />
+                    <Ellipse x:Name="Dot3" Width="7" Height="7" />
+                    <Ellipse x:Name="Dot4" Width="7" Height="7" />
+                </StackPanel>
+
+                <Button x:Name="NextButton"
+                        Grid.Column="2"
+                        Style="{StaticResource AccentButtonStyle}"
+                        Height="38" Padding="24,0"
+                        Click="OnNextClick" />
+            </Grid>
+        </Grid>
+    </Grid>
+</Page>

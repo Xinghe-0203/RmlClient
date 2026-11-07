@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+        浅色 + 青蓝。色板：
+          背景   #F5F7FA   （最底层，极浅的蓝灰）
+          面板   #FFFFFF   （卡片、内容区）
+          次面板 #F1F5F9   （内嵌块、输入框）
+          边框   #E2E8F0   （分隔线、卡片描边）
+          主色   #06B6D4 → #0EA5E9（青到蓝的渐变）
+          成功   #10B981
+          警告   #F59E0B
+          危险   #EF4444
+          文本   #0F172A / 次级 #475569 / 弱化 #94A3B8
+    -->
+
+    <Color x:Key="BackgroundColor">#F5F7FA</Color>
+    <Color x:Key="SurfaceColor">#FFFFFF</Color>
+    <Color x:Key="SurfaceAltColor">#F1F5F9</Color>
+    <Color x:Key="BorderColor">#E2E8F0</Color>
+    <Color x:Key="AccentStartColor">#06B6D4</Color>
+    <Color x:Key="AccentEndColor">#0EA5E9</Color>
+    <Color x:Key="SuccessColor">#10B981</Color>
+    <Color x:Key="WarningColor">#F59E0B</Color>
+    <Color x:Key="DangerColor">#EF4444</Color>
+    <Color x:Key="TextPrimaryColor">#0F172A</Color>
+    <Color x:Key="TextSecondaryColor">#475569</Color>
+    <Color x:Key="TextMutedColor">#94A3B8</Color>
+
+    <!-- 悬停 / 按下 / 选中：浅色主题用中性灰蓝 -->
+    <Color x:Key="HoverColor">#F1F5F9</Color>
+    <Color x:Key="PressedColor">#E2E8F0</Color>
+    <Color x:Key="SelectedColor">#E0F2FE</Color>
+
+    <SolidColorBrush x:Key="BackgroundBrush" Color="{StaticResource BackgroundColor}" />
+    <SolidColorBrush x:Key="SurfaceBrush" Color="{StaticResource SurfaceColor}" />
+    <SolidColorBrush x:Key="SurfaceAltBrush" Color="{StaticResource SurfaceAltColor}" />
+    <SolidColorBrush x:Key="BorderBrush" Color="{StaticResource BorderColor}" />
+    <SolidColorBrush x:Key="SuccessBrush" Color="{StaticResource SuccessColor}" />
+    <SolidColorBrush x:Key="WarningBrush" Color="{StaticResource WarningColor}" />
+    <SolidColorBrush x:Key="DangerBrush" Color="{StaticResource DangerColor}" />
+    <SolidColorBrush x:Key="TextPrimaryBrush" Color="{StaticResource TextPrimaryColor}" />
+    <SolidColorBrush x:Key="TextSecondaryBrush" Color="{StaticResource TextSecondaryColor}" />
+    <SolidColorBrush x:Key="TextMutedBrush" Color="{StaticResource TextMutedColor}" />
+    <SolidColorBrush x:Key="HoverBrush" Color="{StaticResource HoverColor}" />
+    <SolidColorBrush x:Key="PressedBrush" Color="{StaticResource PressedColor}" />
+    <SolidColorBrush x:Key="SelectedBrush" Color="{StaticResource SelectedColor}" />
+
+    <LinearGradientBrush x:Key="AccentBrush" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="{StaticResource AccentStartColor}" Offset="0" />
+        <GradientStop Color="{StaticResource AccentEndColor}" Offset="1" />
+    </LinearGradientBrush>
+
+    <LinearGradientBrush x:Key="AccentHorizontalBrush" StartPoint="0,0" EndPoint="1,0">
+        <GradientStop Color="{StaticResource AccentStartColor}" Offset="0" />
+        <GradientStop Color="{StaticResource AccentEndColor}" Offset="1" />
+    </LinearGradientBrush>
+
+    <!-- 主视觉卡片：从极浅的青蓝渐变到白，浅色主题下不刺眼 -->
+    <LinearGradientBrush x:Key="HeroBrush" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#ECFEFF" Offset="0" />
+        <GradientStop Color="#F0F9FF" Offset="0.55" />
+        <GradientStop Color="#FFFFFF" Offset="1" />
+    </LinearGradientBrush>
+
+    <!-- 卡片描边：主色微透，用于 hover / 拖放高亮 -->
+    <LinearGradientBrush x:Key="AccentBorderBrush" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#8006B6D4" Offset="0" />
+        <GradientStop Color="#330EA5E9" Offset="1" />
+    </LinearGradientBrush>
+
+    <!-- 主色光晕，用于「启动游戏」按钮外发光 -->
+    <RadialGradientBrush x:Key="AccentGlowBrush">
+        <GradientStop Color="#4006B6D4" Offset="0" />
+        <GradientStop Color="#000EA5E9" Offset="1" />
+    </RadialGradientBrush>
+
+    <!-- 圆角：12 / 8 / 6 / 10 -->
+    <CornerRadius x:Key="CardCornerRadius">12</CornerRadius>
+    <CornerRadius x:Key="ControlCornerRadius">8</CornerRadius>
+    <CornerRadius x:Key="SmallCornerRadius">6</CornerRadius>
+    <CornerRadius x:Key="PillCornerRadius">10</CornerRadius>
+
+    <!-- 间距：全部为 8 的倍数 -->
+    <Thickness x:Key="CardPadding">20</Thickness>
+    <Thickness x:Key="PagePadding">24</Thickness>
+    <Thickness x:Key="CompactPadding">12</Thickness>
+
+    <x:Double x:Key="BodyFontSize">14</x:Double>
+    <x:Double x:Key="CaptionFontSize">12</x:Double>
+    <x:Double x:Key="TitleFontSize">20</x:Double>
+    <x:Double x:Key="HeadlineFontSize">28</x:Double>
+
+    <!-- 字体：Segoe UI Variable 优先，中文回退到 Microsoft YaHei UI -->
+    <FontFamily x:Key="AppFontFamily">Segoe UI Variable Text, Microsoft YaHei UI, Segoe UI</FontFamily>
+    <FontFamily x:Key="DisplayFontFamily">Segoe UI Variable Display, Microsoft YaHei UI, Segoe UI</FontFamily>
+    <FontFamily x:Key="MonoFontFamily">Cascadia Mono, Consolas, Microsoft YaHei UI</FontFamily>
+
+    <!--
+        系统强调色覆盖。
+        WinUI 控件（开关、复选框、焦点框、进度条等）默认取系统强调色（Windows 蓝），
+        与应用主色冲突，这里把整套强调色换成青蓝系。
+    -->
+    <Color x:Key="SystemAccentColor">#06B6D4</Color>
+    <Color x:Key="SystemAccentColorLight1">#2BC1DA</Color>
+    <Color x:Key="SystemAccentColorLight2">#44C8DF</Color>
+    <Color x:Key="SystemAccentColorLight3">#6AD3E5</Color>
+    <Color x:Key="SystemAccentColorDark1">#059BB4</Color>
+    <Color x:Key="SystemAccentColorDark2">#047F94</Color>
+    <Color x:Key="SystemAccentColorDark3">#036475</Color>
+
+    <!-- 开关：开态用主色，关态保持中性灰 -->
+    <SolidColorBrush x:Key="ToggleSwitchFillOn" Color="{StaticResource AccentStartColor}" />
+    <SolidColorBrush x:Key="ToggleSwitchFillOnPointerOver" Color="{StaticResource AccentEndColor}" />
+    <SolidColorBrush x:Key="ToggleSwitchFillOnPressed" Color="{StaticResource SystemAccentColorDark1}" />
+    <SolidColorBrush x:Key="ToggleSwitchStrokeOn" Color="{StaticResource AccentStartColor}" />
+    <SolidColorBrush x:Key="ToggleSwitchStrokeOnPointerOver" Color="{StaticResource AccentEndColor}" />
+    <SolidColorBrush x:Key="ToggleSwitchStrokeOnPressed" Color="{StaticResource SystemAccentColorDark1}" />
+    <SolidColorBrush x:Key="ToggleSwitchKnobFillOn" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="ToggleSwitchKnobFillOnPointerOver" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="ToggleSwitchKnobFillOnPressed" Color="#FFFFFF" />
+
+    <!-- 复选框：勾选态同样用主色 -->
+    <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillChecked" Color="{StaticResource AccentStartColor}" />
+    <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillCheckedPointerOver" Color="{StaticResource AccentEndColor}" />
+    <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillCheckedPressed" Color="{StaticResource SystemAccentColorDark1}" />
+    <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeChecked" Color="{StaticResource AccentStartColor}" />
+    <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeCheckedPointerOver" Color="{StaticResource AccentEndColor}" />
+
+</ResourceDictionary>

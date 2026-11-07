@@ -1,0 +1,19 @@
+* text=auto
+
+# 源码：统一按 LF 存储，检出时 Windows 用 CRLF
+*.cs    text diff=csharp
+*.xaml  text
+*.csproj text
+*.sln   text eol=crlf
+*.md    text
+*.json  text
+*.iss   text
+*.ps1   text
+*.manifest text
+
+# 二进制：不做行尾转换，也不做文本 diff
+*.png   binary
+*.ico   binary
+*.tpk   binary
+*.exe   binary
+*.dll   binary

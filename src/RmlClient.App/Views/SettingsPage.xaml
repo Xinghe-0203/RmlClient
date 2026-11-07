@@ -1,0 +1,229 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="RmlClient.App.Views.SettingsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Background="Transparent">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="{StaticResource PagePadding}">
+        <StackPanel Spacing="16" MaxWidth="860" HorizontalAlignment="Stretch">
+
+            <TextBlock x:Name="TitleText" Style="{StaticResource TitleTextStyle}" />
+
+            <!-- ===== 常规 ===== -->
+            <Border Style="{StaticResource CardBorderStyle}">
+                <StackPanel Spacing="16">
+                    <TextBlock x:Name="GeneralHeader" Style="{StaticResource SectionLabelStyle}" />
+
+                    <!-- 语言 -->
+                    <Grid ColumnSpacing="16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Spacing="2">
+                            <TextBlock x:Name="LanguageLabel" Style="{StaticResource BodyTextStyle}" />
+                            <TextBlock x:Name="LanguageHint" Style="{StaticResource MutedTextStyle}" />
+                        </StackPanel>
+                        <ComboBox x:Name="LanguageCombo" Grid.Column="1"
+                                  MinWidth="150" VerticalAlignment="Center"
+                                  SelectionChanged="OnLanguageChanged" />
+                    </Grid>
+
+                    <Rectangle Height="1" Fill="{StaticResource BorderBrush}" />
+
+                    <!-- 分支 -->
+                    <Grid ColumnSpacing="16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Spacing="2">
+                            <TextBlock x:Name="BranchLabel" Style="{StaticResource BodyTextStyle}" />
+                            <TextBlock x:Name="BranchHint" Style="{StaticResource MutedTextStyle}" />
+                        </StackPanel>
+                        <ComboBox x:Name="BranchCombo" Grid.Column="1"
+                                  MinWidth="150" VerticalAlignment="Center"
+                                  SelectionChanged="OnBranchChanged" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- ===== 游戏 ===== -->
+            <Border Style="{StaticResource CardBorderStyle}">
+                <StackPanel Spacing="16">
+                    <TextBlock x:Name="GameHeader" Style="{StaticResource SectionLabelStyle}" />
+
+                    <StackPanel Spacing="8">
+                        <TextBlock x:Name="GamePathLabel" Style="{StaticResource BodyTextStyle}" />
+                        <TextBlock x:Name="GamePathValue"
+                                   Style="{StaticResource MutedTextStyle}"
+                                   IsTextSelectionEnabled="True"
+                                   TextWrapping="Wrap" />
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <Button x:Name="DetectButton" Style="{StaticResource SubtleButtonStyle}"
+                                    Height="34" Padding="14,0" Click="OnDetectClick" />
+                            <Button x:Name="BrowseButton" Style="{StaticResource SubtleButtonStyle}"
+                                    Height="34" Padding="14,0" Click="OnBrowseClick" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <Rectangle Height="1" Fill="{StaticResource BorderBrush}" />
+
+                    <Grid ColumnSpacing="16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Spacing="2">
+                            <TextBlock x:Name="StartViaSteamLabel" Style="{StaticResource BodyTextStyle}" />
+                            <TextBlock x:Name="StartViaSteamHint" Style="{StaticResource MutedTextStyle}" />
+                        </StackPanel>
+                        <ToggleSwitch x:Name="StartViaSteamToggle" Grid.Column="1"
+                                      Style="{StaticResource CompactToggleSwitchStyle}"
+                                      VerticalAlignment="Center"
+                                      Toggled="OnStartViaSteamToggled" />
+                    </Grid>
+
+                    <Grid ColumnSpacing="16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Spacing="2">
+                            <TextBlock x:Name="SkipSplashLabel" Style="{StaticResource BodyTextStyle}" />
+                            <TextBlock x:Name="SkipSplashHint" Style="{StaticResource MutedTextStyle}" />
+                        </StackPanel>
+                        <ToggleSwitch x:Name="SkipSplashToggle" Grid.Column="1"
+                                      Style="{StaticResource CompactToggleSwitchStyle}"
+                                      VerticalAlignment="Center"
+                                      Toggled="OnSkipSplashToggled" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- ===== 注入 ===== -->
+            <Border Style="{StaticResource CardBorderStyle}">
+                <StackPanel Spacing="16">
+                    <TextBlock x:Name="InjectionHeader" Style="{StaticResource SectionLabelStyle}" />
+
+                    <StackPanel Spacing="8">
+                        <RadioButton x:Name="JsonRadio" GroupName="inject" Checked="OnInjectModeChanged" />
+                        <RadioButton x:Name="DoorstopRadio" GroupName="inject" Checked="OnInjectModeChanged" />
+                        <TextBlock x:Name="InjectionHint" Style="{StaticResource MutedTextStyle}" TextWrapping="Wrap" />
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <Button x:Name="VerifyButton" Style="{StaticResource SubtleButtonStyle}"
+                                Height="34" Padding="14,0" Click="OnVerifyClick" />
+                        <Button x:Name="RestoreButton" Style="{StaticResource SubtleButtonStyle}"
+                                Height="34" Padding="14,0" Click="OnRestoreClick" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- ===== 行为 ===== -->
+            <Border Style="{StaticResource CardBorderStyle}">
+                <StackPanel Spacing="16">
+                    <TextBlock x:Name="BehaviorHeader" Style="{StaticResource SectionLabelStyle}" />
+
+                    <Grid ColumnSpacing="16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Spacing="2">
+                            <TextBlock x:Name="CloseToTrayLabel" Style="{StaticResource BodyTextStyle}" />
+                        </StackPanel>
+                        <ToggleSwitch x:Name="CloseToTrayToggle" Grid.Column="1"
+                                      Style="{StaticResource CompactToggleSwitchStyle}"
+                                      VerticalAlignment="Center"
+                                      Toggled="OnCloseToTrayToggled" />
+                    </Grid>
+
+                    <Grid ColumnSpacing="16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Spacing="2">
+                            <TextBlock x:Name="CheckUpdatesLabel" Style="{StaticResource BodyTextStyle}" />
+                        </StackPanel>
+                        <ToggleSwitch x:Name="CheckUpdatesToggle" Grid.Column="1"
+                                      Style="{StaticResource CompactToggleSwitchStyle}"
+                                      VerticalAlignment="Center"
+                                      Toggled="OnCheckUpdatesToggled" />
+                    </Grid>
+
+                    <Grid ColumnSpacing="16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Spacing="2">
+                            <TextBlock x:Name="UploadLogsLabel" Style="{StaticResource BodyTextStyle}" />
+                            <TextBlock x:Name="UploadLogsHint" Style="{StaticResource MutedTextStyle}" TextWrapping="Wrap" />
+                        </StackPanel>
+                        <ToggleSwitch x:Name="UploadLogsToggle" Grid.Column="1"
+                                      Style="{StaticResource CompactToggleSwitchStyle}"
+                                      VerticalAlignment="Center"
+                                      Toggled="OnUploadLogsToggled" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- ===== 高级 ===== -->
+            <Border Style="{StaticResource CardBorderStyle}">
+                <StackPanel Spacing="16">
+                    <TextBlock x:Name="AdvancedHeader" Style="{StaticResource SectionLabelStyle}" />
+
+                    <StackPanel Spacing="8">
+                        <TextBlock x:Name="DataFolderLabel" Style="{StaticResource BodyTextStyle}" />
+                        <TextBlock x:Name="DataFolderValue" Style="{StaticResource MutedTextStyle}"
+                                   IsTextSelectionEnabled="True" TextWrapping="Wrap" />
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <Button x:Name="OpenDataButton" Style="{StaticResource SubtleButtonStyle}"
+                                Height="34" Padding="14,0" Click="OnOpenDataClick" />
+                        <Button x:Name="OpenLogsButton" Style="{StaticResource SubtleButtonStyle}"
+                                Height="34" Padding="14,0" Click="OnOpenLogsClick" />
+                    </StackPanel>
+
+                    <Rectangle Height="1" Fill="{StaticResource BorderBrush}" />
+
+                    <Grid ColumnSpacing="16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Spacing="2">
+                            <TextBlock x:Name="RestoreLabel" Style="{StaticResource BodyTextStyle}" />
+                            <TextBlock x:Name="RestoreHint" Style="{StaticResource MutedTextStyle}" TextWrapping="Wrap" />
+                        </StackPanel>
+                        <Button x:Name="RestoreBackupButton" Grid.Column="1"
+                                Style="{StaticResource SubtleButtonStyle}"
+                                Height="34" Padding="14,0" VerticalAlignment="Center"
+                                Click="OnRestoreBackupClick" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- ===== 关于 ===== -->
+            <Border Style="{StaticResource CardBorderStyle}">
+                <StackPanel Spacing="10">
+                    <TextBlock x:Name="AboutHeader" Style="{StaticResource SectionLabelStyle}" />
+                    <TextBlock Text="RML Client 1.0.0"
+                               Style="{StaticResource BodyTextStyle}" />
+                    <TextBlock x:Name="AboutHint"
+                               Style="{StaticResource MutedTextStyle}"
+                               TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+
+        </StackPanel>
+    </ScrollViewer>
+</Page>

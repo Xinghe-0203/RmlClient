@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window
+    x:Class="RmlClient.App.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <Grid x:Name="RootGrid" Background="{StaticResource BackgroundBrush}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="48" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- ============ 标题栏 ============ -->
+        <Grid x:Name="TitleBarGrid"
+              Grid.Row="0"
+              Background="Transparent"
+              Height="48">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0"
+                        Orientation="Horizontal"
+                        VerticalAlignment="Center"
+                        Margin="20,0,0,0"
+                        Spacing="10">
+                <Border Width="22" Height="22"
+                        CornerRadius="6"
+                        Background="{StaticResource AccentBrush}">
+                    <TextBlock Text="R"
+                               FontFamily="{StaticResource DisplayFontFamily}"
+                               FontSize="13"
+                               FontWeight="Bold"
+                               Foreground="#FFFFFF"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center" />
+                </Border>
+                <TextBlock x:Name="TitleBarText"
+                           Text="Raft Mod Loader"
+                           FontFamily="{StaticResource AppFontFamily}"
+                           FontSize="12"
+                           Foreground="{StaticResource TextSecondaryBrush}"
+                           VerticalAlignment="Center" />
+            </StackPanel>
+
+            <!--
+                标题栏右侧不再自绘最小化/最大化/关闭按钮。
+                ExtendsContentIntoTitleBar=true 时系统仍会绘制标题栏按钮（属于非客户区，
+                XAML 无法隐藏），自绘一套必然重叠，所以这里直接沿用系统按钮，
+                只用 AppWindowTitleBar 调色（见 WindowHelper.SetTitleBarColors）。
+            -->
+        </Grid>
+
+        <!-- ============ 主体 ============ -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition x:Name="SidebarColumn" Width="220" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- 侧边栏 -->
+            <Border Grid.Column="0"
+                    x:Name="Sidebar"
+                    Background="{StaticResource SurfaceBrush}"
+                    BorderBrush="{StaticResource BorderBrush}"
+                    BorderThickness="0,0,1,0">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <!-- 品牌区 -->
+                    <StackPanel Grid.Row="0" Margin="20,16,20,24" Spacing="4">
+                        <TextBlock Text="RML"
+                                   FontFamily="{StaticResource DisplayFontFamily}"
+                                   FontSize="26"
+                                   FontWeight="Bold"
+                                   Foreground="{StaticResource TextPrimaryBrush}" />
+                        <TextBlock x:Name="BrandSubtitle"
+                                   Text="Raft Mod Loader"
+                                   Style="{StaticResource MutedTextStyle}" />
+                    </StackPanel>
+
+                    <!-- 导航 -->
+                    <StackPanel Grid.Row="1" x:Name="NavPanel" Margin="12,0" Spacing="2" />
+
+                    <!-- 底部状态 -->
+                    <StackPanel Grid.Row="2" Margin="20,0,20,16" Spacing="6">
+                        <Border x:Name="StatusDotHost"
+                                Style="{StaticResource InsetCardStyle}"
+                                Padding="10,8">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Ellipse x:Name="StatusDot"
+                                         Width="7" Height="7"
+                                         Fill="{StaticResource TextMutedBrush}"
+                                         VerticalAlignment="Center" />
+                                <TextBlock x:Name="StatusText"
+                                           Text="就绪"
+                                           Style="{StaticResource CaptionTextStyle}"
+                                           VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Border>
+                        <TextBlock x:Name="VersionText"
+                                   Style="{StaticResource MutedTextStyle}"
+                                   Text="v1.0.0" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- 内容区 -->
+            <Grid Grid.Column="1" x:Name="ContentHost">
+                <Frame x:Name="ContentFrame" />
+            </Grid>
+        </Grid>
+    </Grid>
+</Window>

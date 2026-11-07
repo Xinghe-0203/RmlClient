@@ -1,0 +1,40 @@
+# ---- .NET 构建产物 ----
+bin/
+obj/
+*.user
+*.suo
+.vs/
+*.nupkg
+*.snupkg
+
+# ---- 发布与打包产物 ----
+# publish\app 是自包含发布目录（约 210 MB），dist 是安装包（约 60 MB）。
+# 两者都由 CI / 本地构建生成，不入库；发版走 GitHub Releases。
+publish/
+dist/
+
+# ---- 测试与覆盖率 ----
+TestResults/
+coverage/
+*.coverage
+*.trx
+
+# ---- 编辑器 / 系统 ----
+.idea/
+.vscode/
+*.swp
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# ---- 临时文件 ----
+*.tmp
+*.log
+*.bak
+*.old
+.tmp-*/
+
+# ---- 本地调试探针工程（历史遗留，已清理） ----
+_ttest/
+_ggmtest/
+_smoke/
