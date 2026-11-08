@@ -8,7 +8,7 @@
 ; 产物：dist\RmlClient-Setup-<版本>.exe
 
 #define AppName        "Raft Mod Loader Client"
-#define AppVersion     "1.0.1"
+#define AppVersion     "1.0.2"
 #define AppPublisher   "RML Client"
 #define AppExe         "RmlClient.exe"
 ; 升级判断依据，换掉它会让新版本装成另一套程序，不要再改。

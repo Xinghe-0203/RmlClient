@@ -20,7 +20,7 @@
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
     <AssemblyTitle>Raft Mod Loader Client</AssemblyTitle>
     <Product>Raft Mod Loader Client</Product>
-    <Version>1.0.1</Version>
+    <Version>1.0.2</Version>
     <EnableDefaultApplicationDefinition>false</EnableDefaultApplicationDefinition>
   </PropertyGroup>
 
