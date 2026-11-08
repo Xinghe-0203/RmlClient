@@ -71,6 +71,10 @@ public sealed class RmlHttpClient : IDisposable
     /// <summary>
     /// 下载到文件，带进度回调。先写 <c>.part</c> 再原子改名，
     /// 避免中断留下一个看起来完整的坏文件（官方直接覆盖写目标文件）。
+    ///
+    /// 支持断点续传：如果 <c>.part</c> 已经存在且有内容，会带上 <c>Range: bytes=N-</c>
+    /// 从断点继续，而不是从头重下。服务器不认 Range（返回 200 而不是 206）时
+    /// 会自动退回从头写，不会把两段数据拼成一个坏文件。
     /// </summary>
     public async Task DownloadFileAsync(
         string url,
@@ -91,8 +95,36 @@ public sealed class RmlHttpClient : IDisposable
         }
 
         var partPath = destinationPath + ".part";
+        await DownloadToPartAsync(url, partPath, progress, ct).ConfigureAwait(false);
 
-        using var response = await _http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct)
+        if (File.Exists(destinationPath))
+        {
+            File.Delete(destinationPath);
+        }
+
+        File.Move(partPath, destinationPath);
+    }
+
+    /// <summary>
+    /// 下载到 <c>.part</c>，能从已有内容续传。抽出来是为了让重定向递归也走同一套续传逻辑。
+    /// </summary>
+    private async Task DownloadToPartAsync(
+        string url,
+        string partPath,
+        IProgress<DownloadProgress>? progress,
+        CancellationToken ct)
+    {
+        // 已有 .part 就从它的长度接着下。
+        long resumeFrom = File.Exists(partPath) ? new FileInfo(partPath).Length : 0;
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, url);
+        if (resumeFrom > 0)
+        {
+            request.Headers.Range = new RangeHeaderValue(resumeFrom, null);
+        }
+
+        using var response = await _http
+            .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct)
             .ConfigureAwait(false);
 
         // 手动跟随一次重定向，但目标必须仍在白名单内。
@@ -106,9 +138,23 @@ public sealed class RmlHttpClient : IDisposable
             }
 
             var absolute = location.IsAbsoluteUri ? location : new Uri(new Uri(url), location);
-            await DownloadFileAsync(absolute.ToString(), destinationPath, progress, ct)
-                .ConfigureAwait(false);
+            if (!Diagnostics.UrlGuard.IsTrustedDownloadUrl(absolute.ToString()))
+            {
+                throw new InvalidOperationException(
+                    $"拒绝跟随跳转到不信任的地址：{absolute}（允许的主机：{Diagnostics.UrlGuard.DescribeTrustedHosts()}）");
+            }
+
+            await DownloadToPartAsync(absolute.ToString(), partPath, progress, ct).ConfigureAwait(false);
             return;
+        }
+
+        // 服务器不认 Range 就会回 200 并从头发，此时必须丢掉旧数据重新写，
+        // 否则新数据会接在半截旧数据后面，得到一个体积对但内容错的文件。
+        var isPartial = response.StatusCode == HttpStatusCode.PartialContent;
+        var append = isPartial && resumeFrom > 0;
+        if (!append)
+        {
+            resumeFrom = 0;
         }
 
         if (!response.IsSuccessStatusCode)
@@ -119,15 +165,20 @@ public sealed class RmlHttpClient : IDisposable
                 response.StatusCode);
         }
 
-        var total = response.Content.Headers.ContentLength;
+        // 206 的 Content-Length 只是剩余部分，总长度要从 Content-Range 里取。
+        long? total = isPartial
+            ? response.Content.Headers.ContentRange?.Length
+            : response.Content.Headers.ContentLength;
 
         await using (var source = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false))
-        await using (var target = new FileStream(partPath, FileMode.Create, FileAccess.Write, FileShare.None,
-                         bufferSize: 1024 * 128, useAsync: true))
+        await using (var target = new FileStream(partPath, append ? FileMode.Append : FileMode.Create,
+                         FileAccess.Write, FileShare.None, bufferSize: 1024 * 128, useAsync: true))
         {
             var buffer = new byte[1024 * 128];
-            long received = 0;
+            long received = resumeFrom;
             int read;
+
+            progress?.Report(new DownloadProgress(received, total));
 
             while ((read = await source.ReadAsync(buffer, ct).ConfigureAwait(false)) > 0)
             {
@@ -137,14 +188,34 @@ public sealed class RmlHttpClient : IDisposable
             }
         }
 
-        if (File.Exists(destinationPath))
-        {
-            File.Delete(destinationPath);
-        }
-
-        File.Move(partPath, destinationPath);
-        progress?.Report(new DownloadProgress(total ?? new FileInfo(destinationPath).Length, total));
+        progress?.Report(new DownloadProgress(
+            new FileInfo(partPath).Length,
+            total ?? new FileInfo(partPath).Length));
     }
+
+    /// <summary>
+    /// 清掉未完成的 <c>.part</c>。取消下载或确定要重下时调用，
+    /// 否则下次会从这段可疑数据继续。
+    /// </summary>
+    public static void DiscardPartialDownload(string destinationPath)
+    {
+        var partPath = destinationPath + ".part";
+        try
+        {
+            if (File.Exists(partPath))
+            {
+                File.Delete(partPath);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // 删不掉就算了，下次续传时 Content-Range 对不上会退回重写。
+        }
+    }
+
+    /// <summary>是否有一个可以续传的半成品。</summary>
+    public static bool HasPartialDownload(string destinationPath) =>
+        File.Exists(destinationPath + ".part") && new FileInfo(destinationPath + ".part").Length > 0;
 
     public void Dispose() => _http.Dispose();
 }

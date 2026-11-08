@@ -12,12 +12,12 @@
 | --- | --- |
 | 启动 | 一键启动游戏；启动前自动校验并修复注入；可选经 Steam 启动（走 DRM + 云存档）或直接启动 `Raft.exe`。点击后按钮立刻变灰、转圈并显示「正在启动…」，成功后显示「已启动」并保持 5 秒，避免重复点击 |
 | 更新 | 按分支（public / indev）拉 `client.php` 清单，SHA512 校验后原子替换 `coremod.dll` 与 `rml.assets` |
-| 模组 | 扫描 `mods\*.rmod`，启用/禁用（改名为 `.rmod.disabled`）、拖入安装、卸载到回收站、显示真实图标与版本；可一键检查全部模组是否有新版本（读各 mod 的 `version.txt`），逐条或全部更新，更新后保持原有的启用/禁用状态 |
-| 市场 | 拉取 raftmodding.com 全量 mod 列表（约 385 个），本地搜索/分类筛选/排序，一键安装，支持版本回滚 |
+| 模组 | 扫描 `mods\*.rmod`（含 `.lnk` 指向的文件夹 mod），启用/禁用、拖入安装、卸载到回收站、显示真实图标与版本；可一键检查全部模组是否有新版本（读各 mod 的 `version.txt`），逐条或全部更新，更新后保持原有的启用/禁用状态；自动检出重名与文件重叠冲突 |
+| 市场 | 拉取 raftmodding.com 全量 mod 列表（约 385 个），本地搜索/分类筛选/排序，一键安装，支持版本回滚；缓存 1 小时 TTL，过期后后台静默刷新 |
 | 详情 | 点任意模组（市场或本地）弹窗看「这个模组是做什么的」、更新日志、版本列表 |
 | 翻译 | 描述与更新日志自动译成系统默认语言，可随时切换目标语言（13 种）；市场标题、已安装模组列表与搜索也支持中文 |
-| 日志 | 客户端日志（环形缓冲 + 文件轮转）与 `hloader.log` 实时跟随，可清空、导出 |
-| 设置 | 语言、分支、游戏路径、注入方式、托盘、崩溃日志上传、跳过 Unity 启动画面 |
+| 日志 | 客户端日志（环形缓冲 + 文件轮转）、`hloader.log` 与游戏 `Player.log` 三路实时跟随；按级别着色（INFO 灰 / WARN 黄 / ERROR 红），可按级别过滤与全文搜索，可清空、导出 |
+| 设置 | 语言、分支、外观（浅色/深色 + 5 种强调色）、游戏路径、注入方式、托盘、启动后收进托盘、崩溃日志上传、跳过 Unity 启动画面、还原为官方启动器 |
 | 引导 | 首次启动 4 步向导：定位游戏 → 安装 Core → 注入加载器 → 同意条款并完成 |
 | 托盘 | 关闭到托盘，托盘菜单可打开主界面 / 退出；客户端为**单实例**，重复启动会把已有窗口唤到前台 |
 | 自更新 | 查本仓库 GitHub Releases 的最新版本，发现新版时首页提示，可一键下载安装包并运行 |
@@ -77,23 +77,24 @@ RML/Client/
 ├── RmlClient.sln
 ├── src/
 │   ├── RmlClient.Core/            # 无 UI 的业务核心（net9.0-windows）
-│   │   ├── Assets/classdata.tpk   # Unity 类定义包（内嵌资源）
+│   │   ├── Assets/                # classdata.tpk、HMLCoreLibrary.dll.gz、winhttp.dll、doorstop_config.ini（内嵌资源）
 │   │   ├── Configuration/         # IniFile、RmlPaths、LauncherConfig
-│   │   ├── Diagnostics/           # HashUtil、UrlGuard
+│   │   ├── Diagnostics/           # HashUtil、UrlGuard、OfficialRestore、CrashReport
 │   │   ├── Game/                  # SteamLocator、GameLauncher、GameManagersPatcher
-│   │   ├── Injection/             # IInjector、JsonInjector、DoorstopInjector、InjectionBackup
+│   │   ├── Injection/             # IInjector、JsonInjector、DoorstopInjector、InjectionBackup、LoaderProvisioner
 │   │   ├── Logging/               # ClientLogger、LogTailer
 │   │   ├── Market/                # MarketMod、MarketService、TitleTranslator
-│   │   ├── Mods/                  # RmodReader、ModRepository
+│   │   ├── Mods/                  # RmodReader、ModRepository、ModUpdateChecker、ModConflictDetector、ShortcutResolver
 │   │   ├── Translation/           # TranslationService、Bing/MyMemory provider、TranslationLanguage
-│   │   └── Updates/               # Manifests、RmlHttpClient、CoreUpdater
+│   │   └── Updates/               # Manifests、RmlHttpClient、CoreUpdater、ClientUpdater、ClientVersion
 │   └── RmlClient.App/             # WinUI 3 界面
 │       ├── Views/                 # Dashboard / Mods / Market / Logs / Settings / Onboarding
-│       ├── Controls/              # ModDetailView、ModDetailDialog、ModDetailModel
+│       ├── Controls/              # ModDetailView、ModDetailDialog、ModDetailModel、CrashReportDialog
 │       ├── Themes/                # Colors.xaml、Controls.xaml
-│       ├── Services/              # AppServices、Localization、WindowHelper、TrayIcon、MinSizeHelper
+│       ├── Services/              # AppServices、Localization、WindowHelper、TrayIcon、MinSizeHelper、SingleInstance、ThemeService、MotionSettings
 │       ├── Assets/app.ico         # 7 个尺寸（16–256）
 │       └── app.manifest           # asInvoker，PerMonitorV2
+├── tests/RmlClient.Core.Tests/    # xUnit，139 个用例
 ├── installer/RmlClient.iss        # Inno Setup 脚本
 ├── installer/ChineseSimplified.isl
 ├── tools/                         # 自动化脚本（纯 ASCII）
@@ -102,12 +103,23 @@ RML/Client/
 │   ├── clickitem.ps1              # 真实鼠标点击列表项（GridView 不响应 Invoke）
 │   ├── combo.ps1                  # 展开 ComboBox 并从桌面根选中弹出项
 │   ├── search.ps1                 # 往搜索框输入文本并截图
+│   ├── shot2.ps1                  # 最小化也能正确抓图的窗口截图
 │   └── wizard.ps1                 # 驱动 Inno Setup 的 Win32 向导
 ├── docs/design.md                 # 设计文档
 └── docs/screenshots/              # 实机截图
 ```
 
-源码规模：53 个 `.cs` / `.xaml` 文件，约 11,300 行。
+源码规模：65 个 `.cs` / `.xaml` 文件，约 15,500 行；测试 139 个用例。
+
+---
+
+## 测试
+
+```powershell
+dotnet test tests\RmlClient.Core.Tests\RmlClient.Core.Tests.csproj -c Release -p:Platform=x64
+```
+
+覆盖：INI 往返与未知键保留、URL 白名单（含 `fastdl.raftmodding.com.evil.tld` 等 10 种绕过用例）、SHA512、版本比较、`.rmod` 解析与 Zip-Slip、mod 安装/启用/禁用、JSON 注入四态与修复、模组冲突检测、崩溃报告脱敏。
 
 ---
 
@@ -180,6 +192,40 @@ dotnet publish src\RmlClient.App\RmlClient.App.csproj -c Release -r win-x64 -p:P
 - 只支持 Windows x64；Unity 类定义包固定为 `2021.3.45f2` 对应的 `classdata.tpk`，游戏大版本升级后需要换包。
 - 翻译依赖 Bing 网页版接口（非公开 API，字段名与 token 机制可能随时变化）；接口不可用时自动回落到 MyMemory，两者都失败则显示原文。译文由机器翻译产生，仅作参考。
 - 自更新走 GitHub Releases API（`api.github.com`，国内可能需代理）。检查失败时只在日志留 WARN，不影响其它功能；仓库不可达时首页不会出现更新提示条。
+- 崩溃报告上传到 dpaste.com（公开服务，报告保留 7 天）。上传前必定展示完整预览，且用户名 / 本机路径已替换为占位符；服务不可用时只提示失败，不影响主流程。
+
+## 外观
+
+| 项 | 说明 |
+| --- | --- |
+| 主题 | 浅色 / 深色，设置页切换后立即生效并写入 `config.ini` 的 `theme` 键 |
+| 强调色 | 青蓝 / 紫罗兰 / 翠绿 / 琥珀 / 玫红，写入 `accent` 键 |
+| 实现方式 | XAML 全部用 `{StaticResource xxxBrush}`，解析出来是同一画刷实例，运行时改 `Color`（渐变改 `GradientStops`）就能让所有引用处一起变色，无需把 90 多处改成 `ThemeResource` |
+| 窗口背景 | 优先 Mica（`MicaBackdrop`），不可用时回落纯色；侧栏半透明形成亚克力观感 |
+| 动效 | 遵循系统「减少动画」设置（`UISettings.AnimationsEnabled`），关闭时不播放按钮缩放动画 |
+
+## 日志
+
+| 项 | 说明 |
+| --- | --- |
+| 三路来源 | 客户端 `logs\rmlclient.log`、加载器 `logs\hloader.log`、游戏 `%USERPROFILE%\AppData\LocalLow\Redbeet Interactive\Raft\Player.log` |
+| 着色 | INFO 灰、WARN 黄、ERROR 红（RichTextBlock 逐行 `Run`，不是整块单色） |
+| 过滤 | 级别（全部 / 警告以上 / 仅错误）+ 全文搜索，实时生效 |
+| 性能 | 只渲染最后 3000 行，缓冲上限 20000 行；游戏日志打开时回读最后 300 行（崩溃现场在旧内容里） |
+
+## 冲突检测
+
+设计文档原本打算用 `modinfo.json` 的 `excludedFiles` 判断资源冲突，核对官方实现后发现它是**打包时排除**规则（`FolderModHandler` 用它过滤 `.csproj` 之类的文件），与运行时冲突无关。改用两个真判据：
+
+| 判据 | 说明 |
+| --- | --- |
+| 重名 | 两个 mod 的 `modinfo.json` 里 `name` 相同（官方按 name 建索引，重名会顶掉一个） |
+| 文件重叠 | 两个包内含同名文件（Unity 资源与程序集加载不看 mod 边界） |
+| 忽略项 | `modinfo.json`、图片（`.png`/`.jpg`/`.ico`…）、源码与工程文件（`.cs`/`.csproj`/`.sln`…）、文档与元数据（`.md`/`.txt`/`.json`/`.xml`/`.pdb`）不计入冲突，否则同一套 API 的多个 mod 会大量误报 |
+
+## 还原为官方
+
+设置 → 高级 → 「还原为官方启动器」：移除两种注入模式的全部产物（先探测再移除，本来没注入的记为跳过）、把改写的 `globalgamemanagers` 从备份还原、删除 `binaries\HMLCoreLibrary.dll`（官方下次运行会重新释放）。**模组、日志与配置一律保留。**
 
 ## 自更新
 

@@ -220,9 +220,24 @@
                     Visibility="Collapsed"
                     Style="{StaticResource CardBorderStyle}">
                 <StackPanel Spacing="12">
-                    <TextBlock x:Name="ProgressLabel"
-                               Style="{StaticResource BodyTextStyle}"
-                               FontWeight="SemiBold" />
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock x:Name="ProgressLabel"
+                                   Grid.Column="0"
+                                   Style="{StaticResource BodyTextStyle}"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center" />
+                        <!-- 下载可以中途取消：更新包有几十 MB，卡住时不给退路很难受 -->
+                        <Button x:Name="CancelDownloadButton"
+                                Grid.Column="1"
+                                Style="{StaticResource SubtleButtonStyle}"
+                                Height="28" Padding="12,0" FontSize="12"
+                                Visibility="Collapsed"
+                                Click="OnCancelDownloadClick" />
+                    </Grid>
                     <ProgressBar x:Name="ProgressBar"
                                  Style="{StaticResource AccentProgressBarStyle}"
                                  Minimum="0" Maximum="100" Value="0" />

@@ -64,6 +64,14 @@ public sealed class ModEntry
     /// <summary>解析失败时的原因，用于 UI 提示「这个包坏了」。</summary>
     public string? ParseError { get; init; }
 
+    /// <summary>
+    /// 这是 <c>.lnk</c> 快捷方式 mod（官方 <c>FolderModHandler</c> 那条路径）时，
+    /// 指向的源文件夹。为 null 表示普通 <c>.rmod</c> 压缩包。
+    /// </summary>
+    public string? ShortcutTarget { get; init; }
+
+    public bool IsShortcut => ShortcutTarget is not null;
+
     public string DisplayName => Info?.Name is { Length: > 0 } name
         ? name
         : Path.GetFileNameWithoutExtension(FileName);
@@ -172,6 +180,81 @@ public static class RmodReader
             return memory.ToArray();
         }
         catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// 读文件夹形式 mod 的 <c>modinfo.json</c>（<c>.lnk</c> 快捷方式指向的目录）。
+    ///
+    /// 官方 <c>FolderModHandler.GetModDataFromFolder</c> 递归读整个目录，
+    /// 但只跳过 <c>bin</c>/<c>obj</c>/<c>Properties</c>/<c>.vs</c>；
+    /// 这里只取根目录的 modinfo.json —— UI 只需要名字/版本/图标，
+    /// 不需要把整个源码树读进内存。
+    /// </summary>
+    public static ModInfo ReadFolderModInfo(string folderPath)
+    {
+        if (!Directory.Exists(folderPath))
+        {
+            throw new InvalidDataException($"快捷方式指向的目录不存在：{folderPath}");
+        }
+
+        var candidate = Path.Combine(folderPath, ModInfoEntryName);
+        if (!File.Exists(candidate))
+        {
+            throw new InvalidDataException($"目录里缺少 modinfo.json：{folderPath}");
+        }
+
+        var fileInfo = new FileInfo(candidate);
+        if (fileInfo.Length > 4 * 1024 * 1024)
+        {
+            throw new InvalidDataException($"modinfo.json 异常过大（{fileInfo.Length} 字节）。");
+        }
+
+        var info = JsonSerializer.Deserialize<ModInfo>(File.ReadAllText(candidate), JsonOptions);
+        if (info is null)
+        {
+            throw new InvalidDataException("modinfo.json 内容为空。");
+        }
+
+        return info;
+    }
+
+    /// <summary>读文件夹形式 mod 的图标文件。</summary>
+    public static byte[]? TryReadFolderImage(string folderPath, string? entryName, int maxBytes = 8 * 1024 * 1024)
+    {
+        if (string.IsNullOrWhiteSpace(entryName))
+        {
+            return null;
+        }
+
+        try
+        {
+            var normalized = entryName.Replace('\\', '/').TrimStart('/');
+            var full = Path.GetFullPath(Path.Combine(folderPath, normalized));
+
+            // 不允许跳出 mod 目录。
+            var root = Path.GetFullPath(folderPath);
+            if (!full.StartsWith(root, StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            if (!File.Exists(full))
+            {
+                return null;
+            }
+
+            var info = new FileInfo(full);
+            if (info.Length <= 0 || info.Length > maxBytes)
+            {
+                return null;
+            }
+
+            return File.ReadAllBytes(full);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
         {
             return null;
         }

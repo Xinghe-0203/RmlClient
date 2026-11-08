@@ -27,13 +27,17 @@ public sealed partial class MainWindow : Window
 
         Title = "Raft Mod Loader Client";
 
-        var isDark = services.Config.Client.Theme.Equals("dark", StringComparison.OrdinalIgnoreCase);
+        var isDark = ThemeService.IsDark(services.Config.Client.Theme);
 
         WindowHelper.Resize(this, 1100, 720);
         WindowHelper.SetMinSize(this, 900, 600);
         WindowHelper.CenterOnScreen(this);
         WindowHelper.SetTitleBarColors(this, dark: isDark);
         WindowHelper.UseCustomTitleBar(this, TitleBarGrid);
+
+        // Mica 需要窗口内容有透明区域才能透出来；
+        // RootGrid 已改成 Transparent、内容区自己铺底色，见 MainWindow.xaml。
+        ApplyBackdrop(isDark);
 
         _closeToTray = services.Config.Client.CloseToTray;
 
@@ -92,6 +96,22 @@ public sealed partial class MainWindow : Window
         {
             EnsureTray();
         }
+    }
+
+    /// <summary>
+    /// 应用窗口背景。Mica 可用时用它（内容区已铺不透明底色，只有标题栏与侧栏透出）；
+    /// 不可用（Win10 或系统关闭了透明效果）就退回纯色，否则会看到一块纯黑/纯白。
+    /// 切换主题后需要重新调用，因为 MicaKind 分深浅两套。
+    /// </summary>
+    public void ApplyBackdrop(bool dark)
+    {
+        if (WindowHelper.TryEnableMica(this, dark))
+        {
+            return;
+        }
+
+        RootGrid.Background = (Brush)Application.Current.Resources["BackgroundBrush"];
+        _services.Logger.Info("Window", "Mica 不可用，使用纯色背景。");
     }
 
     private void BuildNavigation()
@@ -309,6 +329,29 @@ public sealed partial class MainWindow : Window
         AppWindow.Show();
         Activate();
         WindowHelper.BringToFront(this);
+    }
+
+    /// <summary>
+    /// 启动游戏后把客户端收起来。
+    /// 游戏全屏时窗口留在前台会抢焦点，用户还得手动最小化。
+    /// 托盘可用就藏进托盘（还能叫回来），否则退一步只最小化，
+    /// 绝不能在没有托盘的情况下把窗口藏死。
+    /// </summary>
+    public bool MinimizeToTray()
+    {
+        if (_tray is { IsAvailable: true })
+        {
+            AppWindow.Hide();
+            return true;
+        }
+
+        if (AppWindow.Presenter is OverlappedPresenter presenter)
+        {
+            presenter.Minimize();
+            return true;
+        }
+
+        return false;
     }
 
     public void ForceClose()

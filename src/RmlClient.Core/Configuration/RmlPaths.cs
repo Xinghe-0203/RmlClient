@@ -102,6 +102,24 @@ public sealed class RmlPaths
     public static string GameGlobalGameManagers(string gamePath) =>
         Path.Combine(gamePath, GameDataFolderName, "globalgamemanagers");
 
+    /// <summary>
+    /// Unity 的玩家日志。它不在游戏目录，而在 LocalLow 下按「公司名\产品名」组织。
+    /// 实测本机为 <c>%USERPROFILE%\AppData\LocalLow\Redbeet Interactive\Raft\Player.log</c>。
+    /// </summary>
+    public static string GamePlayerLog =>
+        Path.Combine(PlayerLogFolder, "Player.log");
+
+    /// <summary>上一次运行留下的日志，游戏启动时会把 Player.log 轮转成这个文件。</summary>
+    public static string GamePlayerPrevLog =>
+        Path.Combine(PlayerLogFolder, "Player-prev.log");
+
+    private static string PlayerLogFolder => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+        "AppData",
+        "LocalLow",
+        "Redbeet Interactive",
+        "Raft");
+
     public void EnsureDirectories()
     {
         Directory.CreateDirectory(Root);

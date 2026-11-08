@@ -116,7 +116,10 @@ public sealed class JsonInjector : IInjector
             _ => InjectionState.PartiallyInjected,
         };
 
-        if (state == InjectionState.Injected && (runtimeBroken || scriptingBroken))
+        // 只要有注入痕迹、且某个 JSON 解析不了，就是「损坏」而不是「注入了一半」：
+        // 后者可以靠 Repair 补齐，前者必须从备份还原，两者的修复动作完全不同。
+        var hasTrace = dllPresent || runtimeEntry || scriptingEntry;
+        if (hasTrace && (runtimeBroken || scriptingBroken))
         {
             state = InjectionState.Corrupted;
         }
@@ -171,7 +174,27 @@ public sealed class JsonInjector : IInjector
         // 而 runtimeRoot 本身已经挂在解析出来的文档节点下，
         // 再塞进新对象会抛 InvalidOperationException: The node already has a parent，
         // 表现为「修复注入」直接崩溃。
-        var runtimeDoc = ParseRootDocument(runtimeJson);
+        JsonNode runtimeDoc;
+        try
+        {
+            runtimeDoc = ParseRootDocument(runtimeJson);
+        }
+        catch (JsonException ex)
+        {
+            // JSON 被写坏了就没法增量改。先试备份还原，还原不了就明确失败，
+            // 绝不能让异常冒到 UI 线程（旧版在这里直接崩溃）。
+            var restored = _backup.Restore(gamePath);
+            if (restored.Count == 0)
+            {
+                return InjectionResult.Fail(
+                    "RuntimeInitializeOnLoads.json 已损坏，且没有可用的备份。请在 Steam 里校验游戏文件完整性。",
+                    $"解析失败：{ex.Message}");
+            }
+
+            details.AddRange(restored.Select(r => $"已从备份还原 {r}"));
+            runtimeDoc = ParseRootDocument(runtimeJson);
+        }
+
         var runtimeRoot = GetRoot(runtimeDoc);
         if (!HasRuntimeEntry(runtimeRoot))
         {
@@ -202,7 +225,25 @@ public sealed class JsonInjector : IInjector
                 scriptingJson);
         }
 
-        var scriptingDoc = ParseDocument(scriptingJson);
+        JsonNode scriptingDoc;
+        try
+        {
+            scriptingDoc = ParseDocument(scriptingJson);
+        }
+        catch (JsonException ex)
+        {
+            var restored = _backup.Restore(gamePath);
+            if (restored.Count == 0)
+            {
+                return InjectionResult.Fail(
+                    "ScriptingAssemblies.json 已损坏，且没有可用的备份。请在 Steam 里校验游戏文件完整性。",
+                    $"解析失败：{ex.Message}");
+            }
+
+            details.AddRange(restored.Select(r => $"已从备份还原 {r}"));
+            scriptingDoc = ParseDocument(scriptingJson);
+        }
+
         if (!HasScriptingEntry(scriptingDoc))
         {
             var names = scriptingDoc["names"] as JsonArray

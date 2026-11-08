@@ -16,6 +16,7 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
@@ -86,9 +87,43 @@
             </Grid>
         </Border>
 
+        <!-- 冲突提示条：只在检出冲突时显示 -->
+        <Border x:Name="ConflictBanner"
+                Grid.Row="2"
+                Visibility="Collapsed"
+                CornerRadius="{StaticResource ControlCornerRadius}"
+                BorderBrush="{StaticResource WarningBrush}"
+                BorderThickness="1"
+                Background="{StaticResource SurfaceAltBrush}"
+                Padding="16,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
+                    <TextBlock Text="&#xE7BA;"
+                               FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
+                               FontSize="14"
+                               Foreground="{StaticResource WarningBrush}"
+                               VerticalAlignment="Center" />
+                    <TextBlock x:Name="ConflictBannerText"
+                               Style="{StaticResource CaptionTextStyle}"
+                               VerticalAlignment="Center" />
+                </StackPanel>
+
+                <Button x:Name="ConflictDetailsButton"
+                        Grid.Column="1"
+                        Style="{StaticResource SubtleButtonStyle}"
+                        Height="30" Padding="14,0" FontSize="12"
+                        Click="OnConflictDetailsClick" />
+            </Grid>
+        </Border>
+
         <!-- 拖入提示 -->
         <Border x:Name="DropHint"
-                Grid.Row="2"
+                Grid.Row="3"
                 CornerRadius="{StaticResource ControlCornerRadius}"
                 BorderBrush="{StaticResource BorderBrush}"
                 BorderThickness="1"
@@ -105,7 +140,7 @@
         </Border>
 
         <!-- 列表 -->
-        <Grid Grid.Row="3">
+        <Grid Grid.Row="4">
             <ListView x:Name="ModsList"
                       SelectionMode="None"
                       IsItemClickEnabled="False"

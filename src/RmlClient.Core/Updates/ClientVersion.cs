@@ -46,6 +46,12 @@ public static class ClientVersion
             trimmed = trimmed[..cut];
         }
 
+        // 只有主版本号的 tag（"v2"）也要能比，补一个 .0。
+        if (trimmed.Length > 0 && trimmed.All(char.IsAsciiDigit))
+        {
+            trimmed += ".0";
+        }
+
         if (!Version.TryParse(trimmed, out var parsed))
         {
             return false;

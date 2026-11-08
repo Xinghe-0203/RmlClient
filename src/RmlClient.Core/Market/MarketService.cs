@@ -37,6 +37,18 @@ public sealed class MarketService
 
     public bool HasData => _cached.Count > 0;
 
+    /// <summary>
+    /// 缓存多久算过期。市场列表 917 KB，每次进页面都拉一遍既慢又给服务器添负担；
+    /// 但太久不刷新又会让用户看到下架的 mod，折中取 1 小时。
+    /// </summary>
+    public static readonly TimeSpan CacheTtl = TimeSpan.FromHours(1);
+
+    /// <summary>缓存已过期（或从未加载）。调用方据此决定是否后台刷新。</summary>
+    public bool IsStale =>
+        !HasData ||
+        _cachedAt == DateTimeOffset.MinValue ||
+        DateTimeOffset.UtcNow - _cachedAt > CacheTtl;
+
     /// <summary>从磁盘缓存加载，不联网。</summary>
     public bool LoadFromDisk()
     {

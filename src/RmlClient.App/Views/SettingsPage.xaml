@@ -52,6 +52,45 @@
                 </StackPanel>
             </Border>
 
+            <!-- ===== 外观 ===== -->
+            <Border Style="{StaticResource CardBorderStyle}">
+                <StackPanel Spacing="16">
+                    <TextBlock x:Name="AppearanceHeader" Style="{StaticResource SectionLabelStyle}" />
+
+                    <!-- 主题 -->
+                    <Grid ColumnSpacing="16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Spacing="2">
+                            <TextBlock x:Name="ThemeLabel" Style="{StaticResource BodyTextStyle}" />
+                            <TextBlock x:Name="ThemeHint" Style="{StaticResource MutedTextStyle}" TextWrapping="Wrap" />
+                        </StackPanel>
+                        <ComboBox x:Name="ThemeCombo" Grid.Column="1"
+                                  MinWidth="150" VerticalAlignment="Center"
+                                  SelectionChanged="OnThemeChanged" />
+                    </Grid>
+
+                    <Rectangle Height="1" Fill="{StaticResource BorderBrush}" />
+
+                    <!-- 强调色 -->
+                    <Grid ColumnSpacing="16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Spacing="2">
+                            <TextBlock x:Name="AccentLabel" Style="{StaticResource BodyTextStyle}" />
+                            <TextBlock x:Name="AccentHint" Style="{StaticResource MutedTextStyle}" TextWrapping="Wrap" />
+                        </StackPanel>
+                        <StackPanel x:Name="AccentPanel" Grid.Column="1"
+                                    Orientation="Horizontal" Spacing="8"
+                                    VerticalAlignment="Center" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+
             <!-- ===== 游戏 ===== -->
             <Border Style="{StaticResource CardBorderStyle}">
                 <StackPanel Spacing="16">
@@ -164,6 +203,21 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0" Spacing="2">
+                            <TextBlock x:Name="MinimizeOnLaunchLabel" Style="{StaticResource BodyTextStyle}" />
+                            <TextBlock x:Name="MinimizeOnLaunchHint" Style="{StaticResource MutedTextStyle}" TextWrapping="Wrap" />
+                        </StackPanel>
+                        <ToggleSwitch x:Name="MinimizeOnLaunchToggle" Grid.Column="1"
+                                      Style="{StaticResource CompactToggleSwitchStyle}"
+                                      VerticalAlignment="Center"
+                                      Toggled="OnMinimizeOnLaunchToggled" />
+                    </Grid>
+
+                    <Grid ColumnSpacing="16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Spacing="2">
                             <TextBlock x:Name="UploadLogsLabel" Style="{StaticResource BodyTextStyle}" />
                             <TextBlock x:Name="UploadLogsHint" Style="{StaticResource MutedTextStyle}" TextWrapping="Wrap" />
                         </StackPanel>
@@ -209,6 +263,23 @@
                                 Height="34" Padding="14,0" VerticalAlignment="Center"
                                 Click="OnRestoreBackupClick" />
                     </Grid>
+
+                    <Rectangle Height="1" Fill="{StaticResource BorderBrush}" />
+
+                    <Grid ColumnSpacing="16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Spacing="2">
+                            <TextBlock x:Name="RestoreOfficialLabel" Style="{StaticResource BodyTextStyle}" />
+                            <TextBlock x:Name="RestoreOfficialHint" Style="{StaticResource MutedTextStyle}" TextWrapping="Wrap" />
+                        </StackPanel>
+                        <Button x:Name="RestoreOfficialButton" Grid.Column="1"
+                                Style="{StaticResource SubtleButtonStyle}"
+                                Height="34" Padding="14,0" VerticalAlignment="Center"
+                                Click="OnRestoreOfficialClick" />
+                    </Grid>
                 </StackPanel>
             </Border>
 
@@ -216,7 +287,7 @@
             <Border Style="{StaticResource CardBorderStyle}">
                 <StackPanel Spacing="10">
                     <TextBlock x:Name="AboutHeader" Style="{StaticResource SectionLabelStyle}" />
-                    <TextBlock Text="RML Client 1.0.0"
+                    <TextBlock x:Name="AboutVersionText"
                                Style="{StaticResource BodyTextStyle}" />
                     <TextBlock x:Name="AboutHint"
                                Style="{StaticResource MutedTextStyle}"

@@ -59,6 +59,7 @@ public sealed class AppServices : IDisposable
         GameLauncher = new GameLauncher(Paths, Logger);
         SteamLocator = new SteamLocator();
         GameManagers = new GameManagersPatcher(Path.Combine(Paths.CacheBackup, "ggm"));
+        OfficialRestore = new OfficialRestore(Paths, Backup, JsonInjector, DoorstopInjector, Logger);
         Translation = new TranslationService(Paths);
         MarketTitles = new TitleTranslator(Paths, Translation);
         LocalModTitles = new TitleTranslator(Paths, Translation, "local-mod-titles.json");
@@ -101,6 +102,9 @@ public sealed class AppServices : IDisposable
     public SteamLocator SteamLocator { get; }
 
     public GameManagersPatcher GameManagers { get; }
+
+    /// <summary>一键把环境还原成官方启动器可接管的状态。</summary>
+    public OfficialRestore OfficialRestore { get; }
 
     public TranslationService Translation { get; }
 

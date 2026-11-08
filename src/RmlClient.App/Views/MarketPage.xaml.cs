@@ -59,6 +59,40 @@ public sealed partial class MarketPage : Page
         {
             StatusText.Text = $"{market.Mods.Count} mods · {market.LastFetchedAt.LocalDateTime:MM-dd HH:mm}";
             await EnsureTitlesTranslatedAsync();
+
+            // 缓存过期就后台补一次。先渲染旧数据（用户能立刻看到内容），
+            // 拉到新数据再重画，失败也不打断浏览。
+            if (market.IsStale)
+            {
+                _ = RefreshInBackgroundAsync();
+            }
+        }
+    }
+
+    /// <summary>
+    /// 后台静默刷新过期缓存。与 <see cref="RefreshAsync"/> 的区别：
+    /// 不显示加载遮罩、不弹错误框，失败只记日志（旧数据仍然可用）。
+    /// </summary>
+    private async Task RefreshInBackgroundAsync()
+    {
+        var market = _services.Market;
+        if (market is null || _busy)
+        {
+            return;
+        }
+
+        try
+        {
+            var count = await market.RefreshAsync();
+            _services.Logger.Info("Market", $"缓存已过期，后台刷新 {count} 个 mod。");
+
+            RebuildGrid();
+            StatusText.Text = $"{market.Mods.Count} mods · {market.LastFetchedAt.LocalDateTime:MM-dd HH:mm}";
+            await EnsureTitlesTranslatedAsync();
+        }
+        catch (Exception ex)
+        {
+            _services.Logger.Warn("Market", $"后台刷新失败，继续使用旧缓存：{ex.Message}");
         }
     }
 

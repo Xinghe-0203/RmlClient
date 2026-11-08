@@ -25,6 +25,10 @@ public sealed partial class ModsPage : Page
 
     private bool _checkingUpdates;
 
+    /// <summary>当前检出的冲突，供提示条与详情弹窗使用。</summary>
+    private IReadOnlyList<ModConflictDetector.ModConflict> _conflicts =
+        Array.Empty<ModConflictDetector.ModConflict>();
+
     public ModsPage()
     {
         InitializeComponent();
@@ -116,9 +120,11 @@ public sealed partial class ModsPage : Page
         RefreshButton.Content = L("common.refresh");
         CheckUpdatesButton.Content = L("mods.checkUpdates");
         UpdateAllButton.Content = L("mods.updateAll");
+        ConflictDetailsButton.Content = L("mods.conflictDetails");
         EmptyTitle.Text = L("mods.empty");
         EmptyHint.Text = L("mods.emptyHint");
         UpdateUpdateBanner();
+        UpdateConflictBanner();
     }
 
     /// <summary>
@@ -142,7 +148,52 @@ public sealed partial class ModsPage : Page
     private void Reload()
     {
         _all = _services.Mods?.Scan().ToList() ?? new List<ModEntry>();
+        RefreshConflicts();
         RebuildList();
+    }
+
+    /// <summary>
+    /// 重新检测冲突。检测要读每个包的文件条目，20 个 mod 约几十毫秒，
+    /// 放在 UI 线程上可以接受；不异步是为了让 RebuildList 拿到的状态一定是最新的。
+    /// </summary>
+    private void RefreshConflicts()
+    {
+        try
+        {
+            _conflicts = ModConflictDetector.Detect(_all);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _conflicts = Array.Empty<ModConflictDetector.ModConflict>();
+            _services.Logger.Warn("Mods", $"冲突检测失败：{ex.Message}");
+        }
+    }
+
+    /// <summary>冲突提示条：只有检出冲突时才显示。</summary>
+    private void UpdateConflictBanner()
+    {
+        if (_conflicts.Count == 0)
+        {
+            ConflictBanner.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        ConflictBanner.Visibility = Visibility.Visible;
+        ConflictBannerText.Text = string.Format(L("mods.conflictBanner"), _conflicts.Count);
+    }
+
+    private async void OnConflictDetailsClick(object sender, RoutedEventArgs e)
+    {
+        if (_conflicts.Count == 0)
+        {
+            return;
+        }
+
+        var lines = _conflicts.Select(c => c.Kind == ModConflictDetector.ModConflictKind.DuplicateName
+            ? string.Format(L("mods.conflictDuplicate"), c.Key, c.ModNames)
+            : string.Format(L("mods.conflictFiles"), c.Key, c.ModNames));
+
+        await ShowMessageAsync(L("mods.conflictTitle"), string.Join(Environment.NewLine + Environment.NewLine, lines));
     }
 
     private void RebuildList()
@@ -160,6 +211,7 @@ public sealed partial class ModsPage : Page
         CountText.Text = $"{enabled} / {_all.Count}";
 
         UpdateUpdateBanner();
+        UpdateConflictBanner();
 
         ModsList.Items.Clear();
 

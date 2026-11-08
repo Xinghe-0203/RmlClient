@@ -48,6 +48,12 @@
     <SolidColorBrush x:Key="PressedBrush" Color="{StaticResource PressedColor}" />
     <SolidColorBrush x:Key="SelectedBrush" Color="{StaticResource SelectedColor}" />
 
+    <!--
+        侧边栏：半透明，配合窗口的 Mica 背景形成亚克力观感。
+        内容区自己铺不透明底色（BackgroundBrush），所以不会影响正文对比度。
+    -->
+    <SolidColorBrush x:Key="SidebarBrush" Color="#D9FFFFFF" />
+
     <LinearGradientBrush x:Key="AccentBrush" StartPoint="0,0" EndPoint="1,1">
         <GradientStop Color="{StaticResource AccentStartColor}" Offset="0" />
         <GradientStop Color="{StaticResource AccentEndColor}" Offset="1" />

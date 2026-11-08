@@ -12,6 +12,7 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
@@ -50,32 +51,50 @@
                     CornerRadius="16" Click="OnTabClick" Tag="client" />
             <Button x:Name="LoaderTab" Height="32" Padding="16,0" FontSize="12"
                     CornerRadius="16" Click="OnTabClick" Tag="loader" />
+            <Button x:Name="GameTab" Height="32" Padding="16,0" FontSize="12"
+                    CornerRadius="16" Click="OnTabClick" Tag="game" />
             <TextBlock x:Name="FilterHint"
                        Style="{StaticResource MutedTextStyle}"
                        VerticalAlignment="Center"
                        Margin="8,0,0,0" />
         </StackPanel>
 
+        <!-- 过滤：级别 + 关键词 -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="10">
+            <ComboBox x:Name="LevelCombo"
+                      MinWidth="130" Height="32" FontSize="12"
+                      VerticalAlignment="Center"
+                      SelectionChanged="OnLevelFilterChanged" />
+            <TextBox x:Name="SearchBox"
+                     Width="240" Height="32" FontSize="12"
+                     VerticalAlignment="Center"
+                     TextChanged="OnSearchTextChanged" />
+        </StackPanel>
+
         <!-- 日志区 -->
-        <Border Grid.Row="2" Style="{StaticResource CardBorderStyle}" Padding="0">
+        <Border Grid.Row="3" Style="{StaticResource CardBorderStyle}" Padding="0">
             <Grid>
                 <ScrollViewer x:Name="LogScroll"
                               VerticalScrollBarVisibility="Auto"
                               Padding="16,14"
                               IsTabStop="False">
-                    <TextBlock x:Name="LogText"
-                               FontFamily="{StaticResource MonoFontFamily}"
-                               FontSize="12"
-                               Foreground="{StaticResource TextSecondaryBrush}"
-                               IsTextSelectionEnabled="True"
-                               TextWrapping="NoWrap" />
+                    <!-- 用 RichTextBlock 而不是 TextBlock：需要按级别给每一行上色，
+                         单个 TextBlock 只能有一个前景色。 -->
+                    <RichTextBlock x:Name="LogRich"
+                                   FontFamily="{StaticResource MonoFontFamily}"
+                                   FontSize="12"
+                                   IsTextSelectionEnabled="True"
+                                   TextWrapping="NoWrap" />
                 </ScrollViewer>
 
                 <TextBlock x:Name="EmptyText"
                            Visibility="Collapsed"
                            Style="{StaticResource MutedTextStyle}"
                            HorizontalAlignment="Center"
-                           VerticalAlignment="Center" />
+                           VerticalAlignment="Center"
+                           TextAlignment="Center"
+                           TextWrapping="Wrap"
+                           MaxWidth="420" />
             </Grid>
         </Border>
     </Grid>

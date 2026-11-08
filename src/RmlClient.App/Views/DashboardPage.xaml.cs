@@ -16,6 +16,9 @@ public sealed partial class DashboardPage : Page
 {
     private AppServices _services = null!;
     private CoreUpdateStatus? _updateStatus;
+
+    /// <summary>当前下载的取消源；没有下载进行时为 null。</summary>
+    private CancellationTokenSource? _downloadCts;
     private ClientUpdateStatus? _clientUpdate;
     private bool _busy;
 
@@ -142,6 +145,7 @@ public sealed partial class DashboardPage : Page
         // Steam 拉起游戏只要几十毫秒，「正在启动」会一闪而过。
         // 记下起点，稍后保证这个状态至少显示 LaunchingMinMs。
         var launchingSince = Environment.TickCount64;
+        var launched = false;
 
         try
         {
@@ -176,6 +180,7 @@ public sealed partial class DashboardPage : Page
                 _services.Logger.Info("Launch", result.Message);
                 await HoldLaunchingAsync(launchingSince);
                 await ShowLaunchedAsync();
+                launched = true;
             }
             else
             {
@@ -199,6 +204,14 @@ public sealed partial class DashboardPage : Page
             await Task.Delay(LaunchFeedbackMs);
             ResetLaunchButton();
             SetBusy(false);
+
+            // 反馈显示完之后再收进托盘：一启动就藏起来的话，
+            // 用户根本看不到「已启动」的确认。
+            if (launched && _services.Config.Client.MinimizeOnLaunch &&
+                App.MainWindowInstance is MainWindow window)
+            {
+                window.MinimizeToTray();
+            }
         }
     }
 
@@ -324,6 +337,12 @@ public sealed partial class DashboardPage : Page
     /// </summary>
     private void PlayScaleUp()
     {
+        // 系统里关了动画就别弹 —— 前庭敏感的用户会不适。
+        if (!MotionSettings.AnimationsEnabled)
+        {
+            return;
+        }
+
         try
         {
             var visual = ElementCompositionPreview.GetElementVisual(PlayButton);
@@ -412,6 +431,7 @@ public sealed partial class DashboardPage : Page
 
         SetBusy(true, L("common.loading"));
         ProgressCard.Visibility = Visibility.Visible;
+        BeginCancellableDownload(L("common.loading"));
 
         try
         {
@@ -429,7 +449,8 @@ public sealed partial class DashboardPage : Page
             var result = await _services.CoreUpdater.InstallAsync(
                 _services.Config.Branch,
                 coreProgress,
-                assetsProgress);
+                assetsProgress,
+                _downloadCts!.Token);
 
             if (result.Success)
             {
@@ -446,12 +467,46 @@ public sealed partial class DashboardPage : Page
                 await ShowDialogAsync(L("common.error"), result.Message);
             }
         }
+        catch (OperationCanceledException)
+        {
+            // 用户主动取消：不是错误，但要清掉半成品，否则下次会从可疑数据续传。
+            _services.Logger.Info("Update", "已取消下载。");
+            ProgressDetail.Text = L("home.downloadCancelled");
+        }
         finally
         {
+            EndCancellableDownload();
             ProgressCard.Visibility = Visibility.Collapsed;
             ProgressBar.Value = 0;
             SetBusy(false);
         }
+    }
+
+    /// <summary>
+    /// 开始一次可取消的下载：建 CTS、显示取消按钮。
+    /// 按钮文案在本地化里没有单独条目时用 <c>common.cancel</c>。
+    /// </summary>
+    private void BeginCancellableDownload(string label)
+    {
+        _downloadCts?.Dispose();
+        _downloadCts = new CancellationTokenSource();
+        ProgressLabel.Text = label;
+        CancelDownloadButton.Content = L("common.cancel");
+        CancelDownloadButton.Visibility = Visibility.Visible;
+    }
+
+    private void EndCancellableDownload()
+    {
+        _downloadCts?.Dispose();
+        _downloadCts = null;
+        CancelDownloadButton.Visibility = Visibility.Collapsed;
+    }
+
+    private void OnCancelDownloadClick(object sender, RoutedEventArgs e)
+    {
+        _downloadCts?.Cancel();
+        CancelDownloadButton.IsEnabled = false;
+        ProgressDetail.Text = L("home.downloadCancelling");
     }
 
     // ===== 客户端自身更新（GitHub Releases）=====

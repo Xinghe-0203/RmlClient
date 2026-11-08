@@ -28,6 +28,9 @@ public sealed class ClientSettings
 
     public bool CheckUpdatesOnStartup { get; set; } = true;
 
+    /// <summary>启动游戏后把客户端收进托盘，避免抢游戏的全屏焦点。</summary>
+    public bool MinimizeOnLaunch { get; set; } = true;
+
     public int LogBufferLines { get; set; } = 5000;
 
     /// <summary>
@@ -87,6 +90,7 @@ public sealed class LauncherConfig
         client.CloseToTray = ini.GetBool(ClientSection, "closeToTray", client.CloseToTray);
         client.UploadCrashLogs = ini.GetBool(ClientSection, "uploadCrashLogs", client.UploadCrashLogs);
         client.CheckUpdatesOnStartup = ini.GetBool(ClientSection, "checkUpdatesOnStartup", client.CheckUpdatesOnStartup);
+        client.MinimizeOnLaunch = ini.GetBool(ClientSection, "minimizeOnLaunch", client.MinimizeOnLaunch);
         client.LogBufferLines = ini.GetInt(ClientSection, "logBufferLines", client.LogBufferLines);
         client.TranslateTarget = ini.Get(ClientSection, "translateTarget", string.Empty) ?? string.Empty;
         client.AutoTranslate = ini.GetBool(ClientSection, "autoTranslate", client.AutoTranslate);
@@ -117,6 +121,7 @@ public sealed class LauncherConfig
         ini.Set(ClientSection, "closeToTray", Client.CloseToTray);
         ini.Set(ClientSection, "uploadCrashLogs", Client.UploadCrashLogs);
         ini.Set(ClientSection, "checkUpdatesOnStartup", Client.CheckUpdatesOnStartup);
+        ini.Set(ClientSection, "minimizeOnLaunch", Client.MinimizeOnLaunch);
         ini.Set(ClientSection, "logBufferLines", Client.LogBufferLines);
         ini.Set(ClientSection, "translateTarget", Client.TranslateTarget);
         ini.Set(ClientSection, "autoTranslate", Client.AutoTranslate);

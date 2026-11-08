@@ -204,13 +204,23 @@ public sealed class ClientLogger : IDisposable
 public sealed class LogTailer : IDisposable
 {
     private readonly string _path;
+    private readonly int _initialTailLines;
     private readonly ConcurrentQueue<string> _pending = new();
     private readonly CancellationTokenSource _cts = new();
     private FileSystemWatcher? _watcher;
     private long _position;
     private Task? _loop;
 
-    public LogTailer(string path) => _path = path;
+    /// <param name="path">要跟随的文件。</param>
+    /// <param name="initialTailLines">
+    /// 首次启动时先回读文件末尾多少行。0 = 只跟随新内容（hloader.log 用），
+    /// 大于 0 会把已有内容也读进来（Player.log 用，崩溃现场就在旧内容里）。
+    /// </param>
+    public LogTailer(string path, int initialTailLines = 0)
+    {
+        _path = path;
+        _initialTailLines = Math.Max(0, initialTailLines);
+    }
 
     public event Action<string>? LineReceived;
 
@@ -221,8 +231,14 @@ public sealed class LogTailer : IDisposable
             return;
         }
 
-        // 从文件末尾往前最多读 200 行，避免一启动就灌进几万行历史。
+        // 默认从文件末尾开始，避免一启动就灌进几万行历史；
+        // 指定了 initialTailLines 时改为回退若干行。
         _position = Math.Max(0, new FileInfo(_path).Exists ? new FileInfo(_path).Length : 0);
+
+        if (_initialTailLines > 0 && _position > 0)
+        {
+            _position = FindTailOffset(_path, _initialTailLines);
+        }
 
         var directory = Path.GetDirectoryName(Path.GetFullPath(_path));
         if (!string.IsNullOrEmpty(directory) && Directory.Exists(directory))
@@ -237,6 +253,49 @@ public sealed class LogTailer : IDisposable
         }
 
         _loop = Task.Run(() => LoopAsync(_cts.Token));
+    }
+
+    /// <summary>估算「文件末尾往前 N 行」对应的字节偏移。</summary>
+    private static long FindTailOffset(string path, int lines)
+    {
+        try
+        {
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read,
+                FileShare.ReadWrite | FileShare.Delete);
+
+            var length = stream.Length;
+            var buffer = new byte[16 * 1024];
+            var remaining = length;
+            var seen = 0;
+
+            // 从后往前按块扫，数够 N 个换行就停。
+            while (remaining > 0)
+            {
+                var chunk = (int)Math.Min(buffer.Length, remaining);
+                remaining -= chunk;
+                stream.Seek(remaining, SeekOrigin.Begin);
+
+                var read = stream.Read(buffer, 0, chunk);
+                for (var i = read - 1; i >= 0; i--)
+                {
+                    if (buffer[i] != (byte)'\n')
+                    {
+                        continue;
+                    }
+
+                    if (++seen > lines)
+                    {
+                        return remaining + i + 1;
+                    }
+                }
+            }
+
+            return 0;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return 0;
+        }
     }
 
     private async Task LoopAsync(CancellationToken ct)

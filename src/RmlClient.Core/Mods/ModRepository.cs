@@ -15,6 +15,10 @@ public sealed class ModRepository
     public const string EnabledExtension = RmlPaths.ModExtension;
     public const string DisabledExtension = RmlPaths.DisabledModExtension;
 
+    /// <summary>文件夹形式 mod 的快捷方式（官方 FolderModHandler 那条路径）。</summary>
+    public const string ShortcutExtension = ".lnk";
+    public const string DisabledShortcutExtension = ".lnk.disabled";
+
     private readonly string _modsFolder;
 
     public ModRepository(string modsFolder) => _modsFolder = modsFolder;
@@ -41,8 +45,19 @@ public sealed class ModRepository
             var isEnabled = name.EndsWith(EnabledExtension, StringComparison.OrdinalIgnoreCase);
             var isDisabled = name.EndsWith(DisabledExtension, StringComparison.OrdinalIgnoreCase);
 
-            if (!isEnabled && !isDisabled)
+            // .lnk 快捷方式 mod：官方 ModManagerPage.cs:121 也认它，
+            // 走 FolderModHandler 读目标目录里的 modinfo.json。
+            var isShortcut = name.EndsWith(ShortcutExtension, StringComparison.OrdinalIgnoreCase);
+            var isShortcutDisabled = name.EndsWith(DisabledShortcutExtension, StringComparison.OrdinalIgnoreCase);
+
+            if (!isEnabled && !isDisabled && !isShortcut && !isShortcutDisabled)
             {
+                continue;
+            }
+
+            if (isShortcut || isShortcutDisabled)
+            {
+                result.Add(ReadShortcutEntry(file, name, isShortcut));
                 continue;
             }
 
@@ -80,6 +95,60 @@ public sealed class ModRepository
             .ToList();
     }
 
+    /// <summary>读一个 .lnk mod 条目：解析目标目录 + 目标目录里的 modinfo.json。</summary>
+    private static ModEntry ReadShortcutEntry(string file, string name, bool isEnabled)
+    {
+        var target = ShortcutResolver.ResolveTarget(file);
+
+        var info = default(ModInfo);
+        string? error = null;
+        long size = 0;
+        var lastWrite = DateTimeOffset.UtcNow;
+
+        if (string.IsNullOrEmpty(target))
+        {
+            error = "无法解析快捷方式目标。";
+        }
+        else if (!Directory.Exists(target))
+        {
+            error = $"快捷方式指向的目录不存在：{target}";
+        }
+        else
+        {
+            try
+            {
+                info = RmodReader.ReadFolderModInfo(target);
+                var dirInfo = new DirectoryInfo(target);
+                lastWrite = dirInfo.LastWriteTimeUtc;
+
+                // 目录形式的 mod 没有单一文件大小，用 modinfo.json 的大小占位，
+                // 只用于 UI 上区分「这是个目录 mod」。
+                var manifest = new FileInfo(Path.Combine(target, "modinfo.json"));
+                size = manifest.Exists ? manifest.Length : 0;
+            }
+            catch (Exception ex) when (ex is InvalidDataException or IOException or JsonException)
+            {
+                error = ex.Message;
+            }
+            catch (Exception ex)
+            {
+                error = ex.Message;
+            }
+        }
+
+        return new ModEntry
+        {
+            FilePath = file,
+            FileName = name,
+            IsEnabled = isEnabled,
+            FileSize = size,
+            LastWriteTime = lastWrite,
+            Info = info,
+            ParseError = error,
+            ShortcutTarget = target,
+        };
+    }
+
     public ModOperationResult SetEnabled(ModEntry entry, bool enabled)
     {
         if (!File.Exists(entry.FilePath))
@@ -90,21 +159,28 @@ public sealed class ModRepository
         var directory = Path.GetDirectoryName(entry.FilePath)!;
         var baseName = entry.FileName;
 
+        // 禁用态后缀有两种：.rmod.disabled（压缩包）与 .lnk.disabled（文件夹 mod）。
+        var disabledSuffix = baseName.EndsWith(DisabledShortcutExtension, StringComparison.OrdinalIgnoreCase)
+            ? DisabledShortcutExtension
+            : baseName.EndsWith(DisabledExtension, StringComparison.OrdinalIgnoreCase)
+                ? DisabledExtension
+                : null;
+
         if (enabled)
         {
-            if (!baseName.EndsWith(DisabledExtension, StringComparison.OrdinalIgnoreCase))
+            if (disabledSuffix is null)
             {
                 return ModOperationResult.Ok("已经是启用状态。");
             }
 
-            var target = Path.Combine(
-                directory,
-                baseName[..^DisabledExtension.Length] + EnabledExtension);
+            // 去掉 ".disabled" 尾巴就是原来的启用态文件名。
+            var enabledName = baseName[..^".disabled".Length];
+            var target = Path.Combine(directory, enabledName);
 
             return Move(entry.FilePath, target, "已启用。");
         }
 
-        if (baseName.EndsWith(DisabledExtension, StringComparison.OrdinalIgnoreCase))
+        if (disabledSuffix is not null)
         {
             return ModOperationResult.Ok("已经是禁用状态。");
         }
@@ -147,15 +223,19 @@ public sealed class ModRepository
 
         Directory.CreateDirectory(_modsFolder);
 
-        var fileName = string.IsNullOrWhiteSpace(targetFileName)
+        var requestedName = string.IsNullOrWhiteSpace(targetFileName)
             ? Path.GetFileName(sourceRmodPath)
-            : Path.GetFileName(targetFileName);
+            : targetFileName;
 
         // 只允许落在 mods 目录里：文件名不能带路径分隔符。
-        if (fileName.IndexOfAny(new[] { '\\', '/', ':' }) >= 0)
+        // 必须先校验再 GetFileName —— 否则 "..\escape.rmod" 会被静默改写成
+        // "escape.rmod"，调用方以为装到了别处，实际名字已经变了。
+        if (requestedName.IndexOfAny(new[] { '\\', '/', ':' }) >= 0)
         {
-            return ModOperationResult.Fail($"非法的目标文件名：{fileName}");
+            return ModOperationResult.Fail($"非法的目标文件名：{requestedName}");
         }
+
+        var fileName = Path.GetFileName(requestedName);
 
         var target = Path.Combine(_modsFolder, fileName);
 
