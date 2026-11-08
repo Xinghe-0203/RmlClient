@@ -19,6 +19,16 @@
     <!-- Unity 类定义包（官方 HMLCore 内嵌同一份 Resources.classdata.tpk）。
          改 globalgamemanagers 时用它解析 PlayerSettings / AudioManager 字段。 -->
     <EmbeddedResource Include="Assets\classdata.tpk" LogicalName="RmlClient.Core.classdata.tpk" />
+    <!-- AssemblyLoader 加载器（官方 HMLCore 内嵌的 Resources.AssemblyLoader.dll，
+         22.8 MB，gzip 后 8.2 MB）。官方启动器是在安装时把它从自身资源里释放到
+         %APPDATA%\RaftModLoader\binaries\HMLCoreLibrary.dll；本客户端没有那一步，
+         若只依赖用户机器上已有该文件，全新安装的用户会卡在「缺少 AssemblyLoader.dll」。
+         所以内置一份，缺失时自动释放。 -->
+    <EmbeddedResource Include="Assets\HMLCoreLibrary.dll.gz" LogicalName="RmlClient.Core.HMLCoreLibrary.dll.gz" />
+    <!-- doorstop 模式需要的两个文件（官方 HMLCore 内嵌的 Resources.Doorstop.*）。
+         winhttp.dll 是 doorstop 的代理 DLL，doorstop_config.ini 是模板。 -->
+    <EmbeddedResource Include="Assets\winhttp.dll" LogicalName="RmlClient.Core.winhttp.dll" />
+    <EmbeddedResource Include="Assets\doorstop_config.ini" LogicalName="RmlClient.Core.doorstop_config.ini" />
   </ItemGroup>
 
 </Project>

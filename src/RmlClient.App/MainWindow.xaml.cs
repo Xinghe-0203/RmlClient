@@ -6,6 +6,7 @@ using Microsoft.UI.Xaml.Media;
 using RmlClient.App.Services;
 using RmlClient.App.Views;
 using RmlClient.Core.Game;
+using RmlClient.Core.Updates;
 
 namespace RmlClient.App;
 
@@ -44,6 +45,7 @@ public sealed partial class MainWindow : Window
 
         BuildNavigation();
         UpdateStatus();
+        VersionText.Text = $"v{ClientVersion.Current}";
 
         if (_onboarding)
         {

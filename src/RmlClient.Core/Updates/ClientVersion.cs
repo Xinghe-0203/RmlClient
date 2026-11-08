@@ -12,7 +12,7 @@ public static class ClientVersion
     /// 当前版本。发版时与 <c>RmlClient.App.csproj</c> 的 <c>&lt;Version&gt;</c>、
     /// <c>installer\RmlClient.iss</c> 的 <c>AppVersion</c> 一起改。
     /// </summary>
-    public const string Current = "1.0.0";
+    public const string Current = "1.0.1";
 
     /// <summary>仓库坐标，用于拼 GitHub API 与 Release 下载地址。</summary>
     public const string GitHubOwner = "Xinghe-0203";

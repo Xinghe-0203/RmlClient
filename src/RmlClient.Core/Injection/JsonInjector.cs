@@ -41,11 +41,13 @@ public sealed class JsonInjector : IInjector
 
     private readonly RmlPaths _paths;
     private readonly InjectionBackup _backup;
+    private readonly LoaderProvisioner _loader;
 
-    public JsonInjector(RmlPaths paths, InjectionBackup backup)
+    public JsonInjector(RmlPaths paths, InjectionBackup backup, LoaderProvisioner? loader = null)
     {
         _paths = paths;
         _backup = backup;
+        _loader = loader ?? new LoaderProvisioner(paths);
     }
 
     public InjectionMode Mode => InjectionMode.Json;
@@ -71,7 +73,7 @@ public sealed class JsonInjector : IInjector
         {
             try
             {
-                var root = ParseRoot(runtimeJson);
+                var root = GetRoot(ParseRootDocument(runtimeJson));
                 runtimeEntry = HasRuntimeEntry(root);
                 details.Add(runtimeEntry
                     ? "RuntimeInitializeOnLoads.json 含 AssemblyLoader 启动项。"
@@ -124,6 +126,17 @@ public sealed class JsonInjector : IInjector
 
     public async Task<InjectionResult> ApplyAsync(string gamePath, CancellationToken ct = default)
     {
+        // 先确保 binaries\HMLCoreLibrary.dll 在。全新安装的机器上它不存在
+        // （官方启动器是在安装阶段释放的，本客户端没有那一步），
+        // 这里自动从内置资源解出来，避免用户看到「缺少 AssemblyLoader.dll，请先更新 core。」
+        var provision = _loader.Ensure();
+        if (!provision.Success)
+        {
+            return InjectionResult.Fail(
+                "缺少 AssemblyLoader.dll，请先更新 core。",
+                $"{provision.Message}（期望位置：{provision.Path}）");
+        }
+
         var sourceDll = _paths.AssemblyLoaderDll;
         if (!File.Exists(sourceDll))
         {
@@ -135,6 +148,10 @@ public sealed class JsonInjector : IInjector
         _backup.BackupFiles(gamePath, BackupTargets);
 
         var details = new List<string>();
+        if (provision.Changed)
+        {
+            details.Add(provision.Message);
+        }
 
         var managedTarget = RmlPaths.GameInjectedLoaderDll(gamePath);
         Directory.CreateDirectory(Path.GetDirectoryName(managedTarget)!);
@@ -149,7 +166,13 @@ public sealed class JsonInjector : IInjector
                 runtimeJson);
         }
 
-        var runtimeRoot = ParseRoot(runtimeJson);
+        // 注意：必须复用同一个 JsonNode 树写回。
+        // 早期实现是 `new JsonObject { ["root"] = runtimeRoot }`，
+        // 而 runtimeRoot 本身已经挂在解析出来的文档节点下，
+        // 再塞进新对象会抛 InvalidOperationException: The node already has a parent，
+        // 表现为「修复注入」直接崩溃。
+        var runtimeDoc = ParseRootDocument(runtimeJson);
+        var runtimeRoot = GetRoot(runtimeDoc);
         if (!HasRuntimeEntry(runtimeRoot))
         {
             var entry = new JsonObject
@@ -163,7 +186,7 @@ public sealed class JsonInjector : IInjector
             };
 
             runtimeRoot.Insert(0, entry);
-            WriteDocument(runtimeJson, new JsonObject { ["root"] = runtimeRoot });
+            WriteDocument(runtimeJson, runtimeDoc);
             details.Add("已在 RuntimeInitializeOnLoads.json 插入启动项。");
         }
         else
@@ -217,11 +240,12 @@ public sealed class JsonInjector : IInjector
         {
             try
             {
-                var root = ParseRoot(runtimeJson);
+                var runtimeDoc = ParseRootDocument(runtimeJson);
+                var root = GetRoot(runtimeDoc);
                 var removed = RemoveRuntimeEntries(root);
                 if (removed > 0)
                 {
-                    WriteDocument(runtimeJson, new JsonObject { ["root"] = root });
+                    WriteDocument(runtimeJson, runtimeDoc);
                     details.Add($"已从 RuntimeInitializeOnLoads.json 移除 {removed} 个启动项。");
                 }
             }
@@ -273,16 +297,18 @@ public sealed class JsonInjector : IInjector
     /// <summary>从备份还原游戏原始文件。这是官方没有的能力。</summary>
     public IReadOnlyList<string> RestoreFromBackup(string gamePath) => _backup.Restore(gamePath);
 
-    private static JsonArray ParseRoot(string path)
+    private static JsonNode ParseRootDocument(string path)
     {
         var doc = ParseDocument(path);
-        if (doc["root"] is JsonArray root)
+        if (doc["root"] is JsonArray)
         {
-            return root;
+            return doc;
         }
 
         throw new JsonException("缺少 root 数组。");
     }
+
+    private static JsonArray GetRoot(JsonNode doc) => (JsonArray)doc["root"]!;
 
     private static JsonNode ParseDocument(string path)
     {
@@ -336,6 +362,7 @@ public sealed class JsonInjector : IInjector
     private static bool RemoveScriptingEntry(JsonNode doc)
     {
         var removed = false;
+        var indexes = new List<int>();
 
         if (doc["names"] is JsonArray names)
         {
@@ -345,15 +372,23 @@ public sealed class JsonInjector : IInjector
                         StringComparison.OrdinalIgnoreCase))
                 {
                     names.RemoveAt(i);
+                    indexes.Add(i);
                     removed = true;
                 }
             }
         }
 
-        // types 与 names 平行，按相同下标移除。
-        if (removed && doc["types"] is JsonArray types && types.Count > 0)
+        // types 与 names 平行：必须按**相同下标**移除。
+        // 早期实现固定删 types[0]，当条目不在首位时会把别的程序集类型标志删掉。
+        if (doc["types"] is JsonArray types)
         {
-            types.RemoveAt(0);
+            foreach (var index in indexes.OrderByDescending(i => i))
+            {
+                if (index < types.Count)
+                {
+                    types.RemoveAt(index);
+                }
+            }
         }
 
         return removed;

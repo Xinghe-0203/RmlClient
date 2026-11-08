@@ -17,3 +17,4 @@
 *.tpk   binary
 *.exe   binary
 *.dll   binary
+*.gz    binary

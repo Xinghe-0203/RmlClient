@@ -32,11 +32,13 @@ public sealed class DoorstopInjector : IInjector
 
     private readonly RmlPaths _paths;
     private readonly InjectionBackup _backup;
+    private readonly LoaderProvisioner _loader;
 
-    public DoorstopInjector(RmlPaths paths, InjectionBackup backup)
+    public DoorstopInjector(RmlPaths paths, InjectionBackup backup, LoaderProvisioner? loader = null)
     {
         _paths = paths;
         _backup = backup;
+        _loader = loader ?? new LoaderProvisioner(paths);
     }
 
     public InjectionMode Mode => InjectionMode.Doorstop;
@@ -84,37 +86,68 @@ public sealed class DoorstopInjector : IInjector
 
     public async Task<InjectionResult> ApplyAsync(string gamePath, CancellationToken ct = default)
     {
-        var resources = _paths.Resources;
-        var winHttpSource = Path.Combine(resources, WinHttpResourceName);
-        var loaderSource = Path.Combine(resources, LoaderResourceName);
+        var details = new List<string>();
 
-        if (!File.Exists(winHttpSource))
+        // winhttp.dll：优先用用户放在 resources 下的（便于替换版本），否则用内置的。
+        var winHttpSource = Path.Combine(_paths.Resources, WinHttpResourceName);
+        byte[]? winHttpBytes = null;
+        if (File.Exists(winHttpSource))
+        {
+            winHttpBytes = await File.ReadAllBytesAsync(winHttpSource, ct).ConfigureAwait(false);
+        }
+        else
+        {
+            winHttpBytes = LoaderProvisioner.ReadEmbeddedWinHttp();
+            if (winHttpBytes is not null)
+            {
+                details.Add("使用内置的 doorstop winhttp.dll。");
+            }
+        }
+
+        if (winHttpBytes is null)
         {
             return InjectionResult.Fail(
                 "缺少 doorstop 的 winhttp.dll。",
-                $"请把 doorstop 文件放到：{resources}");
+                $"内置资源不可用，请把 winhttp.dll 放到：{_paths.Resources}");
         }
 
+        // RaftModLoader.dll 就是 AssemblyLoader 本体。resources 下放一份就用那份，
+        // 否则从内置加载器解出来直接写到游戏目录（省一次 22 MB 的中间拷贝）。
+        var loaderSource = Path.Combine(_paths.Resources, LoaderResourceName);
         if (!File.Exists(loaderSource))
         {
-            return InjectionResult.Fail(
-                "缺少 RaftModLoader.dll。",
-                $"请把 AssemblyLoader 重命名为 RaftModLoader.dll 放到：{resources}");
+            var extract = _loader.Extract(RmlPaths.GameLoaderDll(gamePath));
+            if (!extract.Success)
+            {
+                return InjectionResult.Fail(
+                    "缺少 RaftModLoader.dll。",
+                    $"{extract.Message}（期望位置：{extract.Path}）");
+            }
+
+            details.Add("已从内置加载器解出 RaftModLoader.dll。");
+            File.WriteAllBytes(RmlPaths.GameWinHttpDll(gamePath), winHttpBytes);
+            details.Add("已写入 winhttp.dll");
+
+            return await FinishDoorstopConfigAsync(gamePath, details).ConfigureAwait(false);
         }
 
         _backup.BackupFiles(gamePath, BackupTargets);
 
-        var details = new List<string>();
-
-        File.Copy(winHttpSource, RmlPaths.GameWinHttpDll(gamePath), overwrite: true);
+        File.WriteAllBytes(RmlPaths.GameWinHttpDll(gamePath), winHttpBytes);
         details.Add("已写入 winhttp.dll");
 
         File.Copy(loaderSource, RmlPaths.GameLoaderDll(gamePath), overwrite: true);
         details.Add("已写入 RaftModLoader.dll");
 
+        return await FinishDoorstopConfigAsync(gamePath, details).ConfigureAwait(false);
+    }
+
+    /// <summary>写 doorstop_config.ini 并返回结果（两种来源分支共用）。</summary>
+    private async Task<InjectionResult> FinishDoorstopConfigAsync(string gamePath, List<string> details)
+    {
         var configPath = RmlPaths.GameDoorstopConfig(gamePath);
         var ini = new IniFile();
-        var general = ini.GetOrAddSection("General");
+        ini.GetOrAddSection("General");
         ini.Set("General", "enabled", "true");
         ini.Set("General", "target_assembly", "RaftModLoader.dll");
         ini.Set("General", "redirect_output_log", "false");

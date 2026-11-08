@@ -8,7 +8,7 @@
 ; 产物：dist\RmlClient-Setup-<版本>.exe
 
 #define AppName        "Raft Mod Loader Client"
-#define AppVersion     "1.0.0"
+#define AppVersion     "1.0.1"
 #define AppPublisher   "RML Client"
 #define AppExe         "RmlClient.exe"
 ; 升级判断依据，换掉它会让新版本装成另一套程序，不要再改。
@@ -82,12 +82,19 @@ const
 
 // 卸载时询问是否一并删除 %APPDATA%\RaftModLoader。
 // 那个目录和官方启动器共用，误删会丢掉全部已装 mod，所以默认「否」。
+//
+// 注意：静默卸载（/VERYSILENT）时**不问也不删**。
+// 早期版本在静默卸载时照样弹 MsgBox，结果无人应答的对话框把卸载进程挂住，
+// 调用方用 -Wait 等不到，误以为已完成，用户数据就在这种「卡住的卸载」里被清掉过。
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 var
   DataDir: String;
 begin
   if CurUninstallStep = usPostUninstall then
   begin
+    if UninstallSilent then
+      Exit;
+
     DataDir := ExpandConstant('{userappdata}') + UserDataDir;
     if DirExists(DataDir) then
     begin

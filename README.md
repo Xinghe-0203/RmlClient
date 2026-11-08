@@ -148,13 +148,27 @@ dotnet publish src\RmlClient.App\RmlClient.App.csproj -c Release -r win-x64 -p:P
 | --- | --- | --- |
 | `config.ini` | 官方 7 键 + 新增 `[client]` 段 7 键 | 双方，未知键保留 |
 | `binaries\coremod.dll` | 核心 mod | 本客户端更新 |
-| `binaries\HMLCoreLibrary.dll` | AssemblyLoader | 官方安装时写入 |
+| `binaries\HMLCoreLibrary.dll` | AssemblyLoader | **本客户端内嵌并自动释放**（见下）；已存在更高版本时保留原文件 |
 | `rml.assets` | 资源包（约 47 MB） | 本客户端更新 |
 | `pid.txt` | 启动握手（AssemblyLoader 读后立即清空） | 本客户端写 |
 | `cache\backup\` | 注入备份 + `globalgamemanagers` 原始副本 | 本客户端 |
 | `logs\rmlclient.log` | 本客户端日志 | 本客户端 |
 
 游戏目录侧的注入产物与官方一致：`Raft_Data\Managed\RaftModLoader_AssemblyLoader.dll`、`Raft_Data\RuntimeInitializeOnLoads.json` 首条 `AssemblyLoader/Entrypoint/Start` 项、`Raft_Data\ScriptingAssemblies.json` 登记。
+
+### 内置加载器
+
+官方启动器在安装阶段会把内嵌的 `AssemblyLoader.dll` 释放到 `binaries\HMLCoreLibrary.dll`；`fastdl.raftmodding.com` 上并没有这个文件的下载端点（只有 `client.php` 给出的 `coremod.dll` 与 `rml.assets`），所以只装本客户端、从没跑过官方启动器的机器会卡在「缺少 AssemblyLoader.dll，请先更新 core」。
+
+本客户端把该文件以 gzip 形式（22.85 MB → 8.58 MB）嵌入 `RmlClient.Core.dll`，由 `LoaderProvisioner` 在启动时与每次注入前自动释放：
+
+| 项 | 说明 |
+| --- | --- |
+| 资源 | `src\RmlClient.Core\Assets\HMLCoreLibrary.dll.gz`（LogicalName `RmlClient.Core.HMLCoreLibrary.dll.gz`） |
+| 期望值 | 长度 `22851072`、SHA256 `4A2880F3…EC8B99`，释放后逐一校验，不符则删除临时文件并报错 |
+| 已有文件 | 长度相同 → 视为完好直接跳过；**长度更大 → 认为是更新的官方版本，保留不覆盖**；更小或缺失 → 重新释放 |
+| 写入方式 | 先解到 `.tmp` 再 `File.Move(overwrite: true)`，避免中途失败留下半个 DLL |
+| doorstop 模式 | `winhttp.dll`（26,112 B）与 `doorstop_config.ini` 同样内嵌；`resources\` 目录下若放了同名文件则优先用用户的 |
 
 ---
 

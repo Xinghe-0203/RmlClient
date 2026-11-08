@@ -39,8 +39,22 @@ public sealed class AppServices : IDisposable
         CoreUpdater = new CoreUpdater(Paths, Api, _http);
 
         Backup = new InjectionBackup(Paths);
-        JsonInjector = new JsonInjector(Paths, Backup);
-        DoorstopInjector = new DoorstopInjector(Paths, Backup);
+        Loader = new LoaderProvisioner(Paths);
+        JsonInjector = new JsonInjector(Paths, Backup, Loader);
+        DoorstopInjector = new DoorstopInjector(Paths, Backup, Loader);
+
+        // 启动时就把内置加载器释放到 binaries\HMLCoreLibrary.dll。
+        // 官方启动器是在安装阶段做这件事的，本客户端没有安装步骤，
+        // 不补这一步全新安装的机器点「启动游戏」会直接报缺少 AssemblyLoader.dll。
+        var loaderState = Loader.Ensure();
+        if (loaderState.Changed)
+        {
+            Logger.Info("Loader", $"已释放内置 AssemblyLoader：{loaderState.Path}");
+        }
+        else if (!loaderState.Success)
+        {
+            Logger.Warn("Loader", loaderState.Message);
+        }
 
         GameLauncher = new GameLauncher(Paths, Logger);
         SteamLocator = new SteamLocator();
@@ -75,6 +89,8 @@ public sealed class AppServices : IDisposable
     public CoreUpdater CoreUpdater { get; }
 
     public InjectionBackup Backup { get; }
+
+    public LoaderProvisioner Loader { get; }
 
     public JsonInjector JsonInjector { get; }
 
