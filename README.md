@@ -2,7 +2,7 @@
 
 一个替代官方 `HMLCore.exe` 的 Raft 模组加载器启动器：WinUI 3 + Windows App SDK，浅色主题，中英双语。
 
-复用官方已安装的注入链路（`coremod.dll` + `AssemblyLoader` + JSON 注入 / Doorstop），只重做界面、更新、模组管理与日志，因此可以和官方启动器共用 `%APPDATA%\RaftModLoader` 目录，装完即可直接接管现有的 19 个 mod。
+复用官方已安装的注入链路（`coremod.dll` + `AssemblyLoader` + JSON 注入 / Doorstop），只重做界面、更新、模组管理与日志，因此可以和官方启动器共用 `%APPDATA%\RaftModLoader` 目录，装完即可直接接管现有的mod。
 
 ---
 
