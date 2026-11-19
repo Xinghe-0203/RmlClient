@@ -1,8 +1,8 @@
 # Raft Mod Loader Client
 
-一个替代官方 `HMLCore.exe` 的 Raft 模组加载器启动器：WinUI 3 + Windows App SDK，浅色主题，中英双语。
+一个 Raft 模组加载器启动器：WinUI 3 + Windows App SDK，中英双语，浅色/深色主题。
 
-复用官方已安装的注入链路（`coremod.dll` + `AssemblyLoader` + JSON 注入 / Doorstop），只重做界面、更新、模组管理与日志，因此可以和官方启动器共用 `%APPDATA%\RaftModLoader` 目录，装完即可直接接管现有的mod。
+它复用 Raft Mod Loader 官方已安装的注入链路（`coremod.dll` + `AssemblyLoader` + JSON 注入 / Doorstop），只重做界面、更新、模组管理与日志，因此可以和官方启动器共用 `%APPDATA%\RaftModLoader` 目录，装完即可接管已有的模组。
 
 ---
 
@@ -13,7 +13,7 @@
 | 启动 | 一键启动游戏；启动前自动校验并修复注入；可选经 Steam 启动（走 DRM + 云存档）或直接启动 `Raft.exe`。点击后按钮立刻变灰、转圈并显示「正在启动…」，成功后显示「已启动」并保持 5 秒，避免重复点击 |
 | 更新 | 按分支（public / indev）拉 `client.php` 清单，SHA512 校验后原子替换 `coremod.dll` 与 `rml.assets` |
 | 模组 | 扫描 `mods\*.rmod`（含 `.lnk` 指向的文件夹 mod），启用/禁用、拖入安装、卸载到回收站、显示真实图标与版本；可一键检查全部模组是否有新版本（读各 mod 的 `version.txt`），逐条或全部更新，更新后保持原有的启用/禁用状态；自动检出重名与文件重叠冲突 |
-| 市场 | 拉取 raftmodding.com 全量 mod 列表（约 385 个），本地搜索/分类筛选/排序，一键安装，支持版本回滚；缓存 1 小时 TTL，过期后后台静默刷新 |
+| 市场 | 拉取 raftmodding.com 全量 mod 列表，本地搜索/分类筛选/排序，一键安装，支持版本回滚；缓存 1 小时 TTL，过期后后台静默刷新 |
 | 详情 | 点任意模组（市场或本地）弹窗看「这个模组是做什么的」、更新日志、版本列表 |
 | 翻译 | 描述与更新日志自动译成系统默认语言，可随时切换目标语言（13 种）；市场标题、已安装模组列表与搜索也支持中文 |
 | 日志 | 客户端日志（环形缓冲 + 文件轮转）、`hloader.log` 与游戏 `Player.log` 三路实时跟随；按级别着色（INFO 灰 / WARN 黄 / ERROR 红），可按级别过滤与全文搜索，可清空、导出 |
@@ -24,27 +24,26 @@
 
 ---
 
-## 相对官方启动器的改进
+## 设计上的加固点
 
-官方 `RMLLauncher.exe`（513 KB，.NET Framework 4.8，无签名）逆向后的主要问题，以及本客户端的处理：
+启动器要下载并执行远端文件，因此下面这些环节都按「不信任输入」处理：
 
-| # | 官方问题 | 本客户端 |
+| # | 常见问题 | 本客户端 |
 | --- | --- | --- |
-| 1 | 更新 URL 白名单用 `url.StartsWith("https://fastdl.raftmodding.com")`，`https://fastdl.raftmodding.com.evil.tld/x.exe` 也能通过 | `UrlGuard` 校验 scheme + 默认端口 + **精确主机名** + IDN 全 ASCII |
-| 2 | `WebClient` 默认跟随重定向，重定向后的最终地址不再校验 | `AllowAutoRedirect = false`，手动跟随且**每一跳重新过白名单** |
-| 3 | 递归删除 `:Zone.Identifier` 清除 MOTW，抑制 SmartScreen | 保留（mod 正常加载所需），但只对下载产物做，不递归整目录 |
-| 4 | 下载后 `Process.Start` 直接执行，仅比对同一响应内的 hash | 校验 SHA512 后**原子替换**，仍无独立签名（受限于官方分发方式） |
-| 5 | coremod / assets 下载只校验扩展名 `.dll` / `.assets`，**无域名校验** | 两个 URL 都过 `UrlGuard` |
-| 6 | `if (!File.Exists(text) && new FileInfo(text).Length > 10)` 条件写反，提示框永不弹出 | 正确的前置检查 |
-| 7 | mod hash 为 null 时静默跳过校验 | 无 hash 时明确拒绝安装 |
-| 8 | `rmllauncher://installmod/<slug>` 未做本地 slug 校验 | slug 走正则 `^(?!\d+$)[a-z0-9\-._]+$` 且长度 ≤ 64 |
-| 9 | 下载回调不检查 `e.Error`，失败也置完成标志 | 异常路径明确返回失败 |
-| 10 | `while (!a \|\| !b) await Task.Delay(1)` 1ms 忙等 | 用 `TaskCompletionSource` / 顺序 await |
-| 11 | 无 `-DEBUG` 且无本地 exe 时界面永久卡在 "Checking for launcher updates..." | 每步都有超时与失败分支 |
-| 12 | 卸载不清 `.rmod` 文件关联、`rmllauncher` URI scheme、`binaries\*.dll` | 卸载时清理注入产物并提示是否删除用户数据 |
-| 13 | 改写 `globalgamemanagers` **完全不备份** | 首次改写前备份到 `cache\backup\ggm\globalgamemanagers.original` |
+| 1 | 用字符串前缀判断下载地址来源，`https://fastdl.raftmodding.com.evil.tld/x.exe` 这类地址也能通过 | `UrlGuard` 校验 scheme + 默认端口 + **精确主机名** + IDN 全 ASCII |
+| 2 | 自动跟随重定向，最终落点不再校验 | `AllowAutoRedirect = false`，手动跟随且**每一跳重新过白名单** |
+| 3 | 只校验扩展名，不校验来源域名 | 每个下载地址都过 `UrlGuard` |
+| 4 | 校验失败后直接覆盖目标文件，可能留下半个文件 | 先落 `.part`，校验 SHA512 通过后**原子替换** |
+| 5 | 文件不存在时先取长度，异常导致提示永不出现 | 先判存在再取长度 |
+| 6 | 缺少 hash 时静默跳过校验 | 无 hash 时明确拒绝安装 |
+| 7 | 自定义 URI scheme 的参数未做校验 | slug 走正则 `^(?!\d+$)[a-z0-9\-._]+$` 且长度 ≤ 64 |
+| 8 | 下载回调不检查错误，失败也置完成标志 | 异常路径明确返回失败 |
+| 9 | 用极短间隔忙等轮询下载完成 | `TaskCompletionSource` / 顺序 await |
+| 10 | 异常路径缺少超时与失败分支，界面可能永久等待 | 每步都有超时与失败分支 |
+| 11 | 卸载时不清文件关联与 URI scheme | 卸载时清理注入产物并提示是否删除用户数据 |
+| 12 | 改写游戏文件前不备份 | 首次改写前备份到 `cache\backup\` |
 
-另外，AssemblyLoader / coremod 里 `HttpCertHandler.ValidateCertificate => true` 全局关闭了 TLS 校验（4 处调用），本客户端**不复用**该路径，自己的 HTTP 栈严格校验证书。
+HTTP 栈严格校验证书，不使用任何全局关闭 TLS 校验的兼容路径。
 
 ---
 
@@ -54,7 +53,7 @@
 
 | 项 | 说明 |
 | --- | --- |
-| 主通道 | **Bing 网页版翻译**（`www.bing.com/ttranslatev3`）—— 实测国内可直连，质量最好 |
+| 主通道 | **Bing 网页版翻译**（`www.bing.com/ttranslatev3`）—— 国内可直连，译文质量较好 |
 | 备用通道 | **MyMemory**（`api.mymemory.translated.net`），单次上限 500 字符，主通道失败时兜底 |
 | 已排除 | Google 系（国内连不上）、百度（需 cookie 签名）、有道（302 / 返回 HTML）、LibreTranslate 公共实例（全部无响应）、SimplyTranslate（译文为空） |
 | 语言 | 简体中文、繁體中文、English、日本語、한국어、Русский、Deutsch、Français、Español、Português、Italiano、Polski、Türkçe |
@@ -63,7 +62,7 @@
 
 实现要点：
 
-- Bing 需要先 `GET /translator` 拿 cookie 并正则提取 `IG` / `IID` / `params_AbusePreventionHelper`（key + token），`fromLang` 必须写 `auto-detect`；单次文本上限实测 900 字符，故按 800 切分。
+- Bing 需要先 `GET /translator` 拿 cookie 并正则提取 `IG` / `IID` / `params_AbusePreventionHelper`（key + token），`fromLang` 必须写 `auto-detect`；单次文本上限约 900 字符，故按 800 切分。
 - 长文本按换行 → 句末标点 → 空格 → 硬切的优先级分块，块间串行请求。
 - 批量接口 `TranslateBatchAsync` 把多个短标题用 `\n` 拼成一次请求，返回行数对不上就退回逐条（不猜对应关系）。
 - 翻译失败**永不抛异常**：返回原文并在状态栏标注「翻译不可用，显示原文」，不影响模组安装等主流程。
@@ -146,7 +145,7 @@ dotnet publish src\RmlClient.App\RmlClient.App.csproj -c Release -r win-x64 -p:P
 & "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe" installer\RmlClient.iss
 ```
 
-产物 `dist\RmlClient-Setup-1.0.0.exe`（约 58 MB，`lzma2/max` 固实压缩；未压缩的 `publish\app` 是 210 MB）。
+产物 `dist\RmlClient-Setup-1.0.2.exe`（约 66 MB，`lzma2/max` 固实压缩；未压缩的 `publish\app` 约 219 MB）。
 
 安装行为：默认按用户安装到 `%LOCALAPPDATA%\Programs\Raft Mod Loader Client`，无需管理员；卸载时**默认保留** `%APPDATA%\RaftModLoader`（该目录与官方启动器共用，误删会丢全部 mod），可选清理。
 
@@ -186,9 +185,9 @@ dotnet publish src\RmlClient.App\RmlClient.App.csproj -c Release -r win-x64 -p:P
 
 ## 已知限制
 
-- 安装包 58 MB、自包含发布 210 MB（Windows App SDK 自包含 + .NET 运行时），未做 trimming（WinUI 对 trimming 支持有限）。
+- 安装包约 66 MB、自包含发布约 219 MB（Windows App SDK 自包含 + .NET 运行时），未做 trimming（WinUI 对 trimming 支持有限）。
 - 仍无 Authenticode 签名：hash 校验只能证明「与服务器同一次响应一致」，不能证明来源，这一点受限于官方分发方式。
-- 市场数据是全量 917 KB JSON，服务端 `page`/`limit`/`search` 参数全部无效，只能本地筛选。
+- 市场数据是全量 JSON（约 917 KB），服务端 `page`/`limit`/`search` 参数均不生效，只能本地筛选。
 - 只支持 Windows x64；Unity 类定义包固定为 `2021.3.45f2` 对应的 `classdata.tpk`，游戏大版本升级后需要换包。
 - 翻译依赖 Bing 网页版接口（非公开 API，字段名与 token 机制可能随时变化）；接口不可用时自动回落到 MyMemory，两者都失败则显示原文。译文由机器翻译产生，仅作参考。
 - 自更新走 GitHub Releases API（`api.github.com`，国内可能需代理）。检查失败时只在日志留 WARN，不影响其它功能；仓库不可达时首页不会出现更新提示条。
@@ -215,11 +214,11 @@ dotnet publish src\RmlClient.App\RmlClient.App.csproj -c Release -r win-x64 -p:P
 
 ## 冲突检测
 
-设计文档原本打算用 `modinfo.json` 的 `excludedFiles` 判断资源冲突，核对官方实现后发现它是**打包时排除**规则（`FolderModHandler` 用它过滤 `.csproj` 之类的文件），与运行时冲突无关。改用两个真判据：
+`modinfo.json` 的 `excludedFiles` 是**打包时排除**规则（过滤 `.csproj` 之类的文件），与运行时资源冲突无关，因此不作为冲突判据。实际使用两个判据：
 
 | 判据 | 说明 |
 | --- | --- |
-| 重名 | 两个 mod 的 `modinfo.json` 里 `name` 相同（官方按 name 建索引，重名会顶掉一个） |
+| 重名 | 两个 mod 的 `modinfo.json` 里 `name` 相同（加载器按 name 建索引，重名会顶掉一个） |
 | 文件重叠 | 两个包内含同名文件（Unity 资源与程序集加载不看 mod 边界） |
 | 忽略项 | `modinfo.json`、图片（`.png`/`.jpg`/`.ico`…）、源码与工程文件（`.cs`/`.csproj`/`.sln`…）、文档与元数据（`.md`/`.txt`/`.json`/`.xml`/`.pdb`）不计入冲突，否则同一套 API 的多个 mod 会大量误报 |
 
@@ -253,4 +252,4 @@ dotnet publish src\RmlClient.App\RmlClient.App.csproj -c Release -r win-x64 -p:P
 | 更新方式 | 走市场下载（`?ignoreVirusScan=true` + 白名单 + SHA256），落盘为 `modinstaller.<slug>.rmod`；**若原本是禁用状态，更新后仍保持禁用** |
 | 已知上游问题 | 个别 mod 的 `version.txt` 已声明新版本，但市场分发的包内 `modinfo.json` 仍是旧版本（如 Raft_Cost 的 `version.txt` 写 1.1.0 而包内是 1.0），表现为「更新后仍提示有更新」。属上游数据不一致，客户端无法修正 |
 
-> 与官方实现的差异：官方 `HUtils.GetModVersion` 用的是禁用了证书校验的 `HttpCertHandler`，本实现走正常 TLS。
+> 与官方启动器的差异：官方在检查模组更新时不校验 TLS 证书，本实现走正常证书校验。

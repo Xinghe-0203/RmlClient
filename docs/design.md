@@ -1,10 +1,9 @@
 # RML Client 设计文档
 
-> 一个替代 `HMLCore.exe` 的 Raft Mod Loader 启动器外壳。复用现有注入链（coremod.dll + AssemblyLoader + JSON 注入 / doorstop），重做 UI、交互、更新、日志、mod 市场。
+> 一个 Raft Mod Loader 启动器外壳。复用现有注入链（coremod.dll + AssemblyLoader + JSON 注入 / doorstop），重做 UI、交互、更新、日志、mod 市场。
 
-- 状态：设计待确认
+- 状态：已实现
 - 日期：2026-11-07
-- 前置产物：对官方 `RMLLauncher.exe` 的逆向分析（不在本仓库内）
 
 ---
 
@@ -12,10 +11,10 @@
 
 ### 目标
 
-1. 一个**好看**的启动器：深色 + 青蓝、云母/亚克力、大圆角卡片、左侧图标导航、有过渡动画。
-2. 覆盖原版全部必要功能，并修掉逆向中发现的缺陷。
-3. 真正能跑：能启动 Raft、能加载现有 19 个 mod、能自动更新 coremod。
-4. 自包含单文件发布，双击即用，不要求用户装 .NET 或 Windows App Runtime。
+1. 一个**好看**的启动器：云母/亚克力、大圆角卡片、左侧图标导航、有过渡动画，支持浅色与深色主题。
+2. 覆盖启动、更新、模组管理、日志等全部必要功能。
+3. 真正能跑：能启动 Raft、能加载已有 mod、能自动更新 coremod。
+4. 自包含发布，双击即用，不要求用户装 .NET 或 Windows App Runtime。
 
 ### 非目标
 
@@ -30,7 +29,7 @@
 
 ### 目录接管
 
-客户端**直接读写** `%APPDATA%\RaftModLoader`，与官方 HMLCore.exe 共用同一份数据。官方 exe 保留在磁盘上但不再由本客户端启动。
+客户端**直接读写** `%APPDATA%\RaftModLoader`，与官方启动器共用同一份数据。官方 exe 保留在磁盘上但不再由本客户端启动。
 
 | 路径 | 用途 | 本客户端 |
 |---|---|---|
@@ -74,9 +73,9 @@ closeToTray = True
 
 ### 注入模式
 
-两种都实现，默认 JSON（当前机器上生效的模式），设置里可切。
+两种都实现，默认 JSON，设置里可切。
 
-- **JSON 注入**：拷 `RaftModLoader_AssemblyLoader.dll` 到 `Raft_Data\Managed\`，在 `RuntimeInitializeOnLoads.json` 的 `root[0]` 插入 `AssemblyLoader/Entrypoint/Start`，在 `ScriptingAssemblies.json` 的 `names[0]` 插入 DLL 名、`types[0]` 插入 `1`。**改动前必须备份原始 JSON**（官方实现不备份，这是缺陷）。
+- **JSON 注入**：拷 `RaftModLoader_AssemblyLoader.dll` 到 `Raft_Data\Managed\`，在 `RuntimeInitializeOnLoads.json` 的 `root[0]` 插入 `AssemblyLoader/Entrypoint/Start`，在 `ScriptingAssemblies.json` 的 `names[0]` 插入 DLL 名、`types[0]` 插入 `1`。**改动前必须备份原始 JSON**。
 - **doorstop 注入**：拷 `winhttp.dll`、写 `doorstop_config.ini`、拷 `RaftModLoader.dll` 到游戏根目录。`ignore_disable_switch` 默认 false（现代版），兼容旧版 Raft 时设 true。
 
 ---
@@ -86,15 +85,15 @@ closeToTray = True
 | 层 | 选型 | 理由 |
 |---|---|---|
 | UI | **WinUI 3 / Windows App SDK 1.8** | 用户指定。Fluent 控件开箱可用，云母/亚克力/圆角原生支持。 |
-| 语言/运行时 | C# 13 / .NET 9 | 与现有 RML 逻辑同语言，能直接照搬逆向出来的算法。 |
+| 语言/运行时 | C# 13 / .NET 9 | 与现有 RML 逻辑同语言，便于复用其数据格式与算法。 |
 | MVVM | CommunityToolkit.Mvvm 8.x | `[ObservableProperty]` / `[RelayCommand]` 源生成器，样板代码最少。 |
 | 打包 | `WindowsAppSDKSelfContained=true` + `PublishSingleFile` | 自包含单文件，用户零依赖。 |
 | 配置 | 手写 INI 读写 | 必须与官方 config.ini 字节级兼容，不用第三方库。 |
-| HTTP | `HttpClient` + `SocketsHttpHandler` | 显式设置 `SslOptions`，修掉官方的 TLS 缺陷。 |
+| HTTP | `HttpClient` + `SocketsHttpHandler` | 显式设置 `SslOptions`，全程校验证书。 |
 | JSON | `System.Text.Json` 源生成 | mod 市场 917KB 响应需要快速解析。 |
 | 压缩 | `System.IO.Compression` | 读 `.rmod`（ZIP 格式）里的 `modinfo.json`。 |
 
-**已验证**：WinUI 3 在本机可编译可运行（`_smoke` 工程，281KB exe，窗口成功创建）。注意必须显式 `-r win-x64 -p:Platform=x64`，否则 `WindowsAppSDKSelfContained requires a supported Windows architecture`。
+**已验证**：WinUI 3 可编译可运行。注意必须显式 `-r win-x64 -p:Platform=x64`，否则 `WindowsAppSDKSelfContained requires a supported Windows architecture`。
 
 ---
 
@@ -230,7 +229,7 @@ public interface IHashVerifier
 }
 ```
 
-`ProbeAsync` 必须返回**四态**：`NotInjected` / `Injected` / `PartiallyInjected` / `Corrupted`。官方的实现只有「文件在不在」，无法诊断半损坏状态。
+`ProbeAsync` 必须返回**四态**：`NotInjected` / `Injected` / `PartiallyInjected` / `Corrupted`。只判断「文件在不在」无法诊断半损坏状态。
 
 ---
 
@@ -252,15 +251,15 @@ public interface IHashVerifier
 - 启动前检查链：游戏路径有效 → coremod 存在且 hash 匹配 → 注入状态正常 → 游戏未在运行。任一不满足，主按钮变为「修复并启动」并说明原因。
 - 启动方式二选一：`Process.Start("<gamePath>\Raft.exe")` 或 `Process.Start("steam://run/648800")`（读 `startGameFromSteam`）。
 - 启动后写 `pid.txt`（AssemblyLoader 的 PID 握手需要），客户端最小化到托盘。
-- **修掉官方缺陷**：官方 `-DEBUG` 且无 exe 时会永久卡在 "Checking for launcher updates..."，本客户端所有异步操作都有超时与取消，UI 永不无限等待。
+- **异常路径不等待**：所有异步操作都有超时与取消，UI 永不无限等待。
 
 ### 6.3 Core 更新
 
 - `GET https://fastdl.raftmodding.com/data/client.php?branch=<branch>`，15s 超时。
 - 解析 `version / coremod_url / assets_url / coremod_hash / assets_hash / rawChangelog / fullChangelogUrl`。
-- **安全加固**（相对官方）：
-  1. `coremod_url` / `assets_url` 必须 `https` 且 host 属于白名单 `{fastdl.raftmodding.com, www.raftmodding.com}`，用 `Uri.Host` 精确比较，**不用字符串前缀**（官方 `StartsWith` 可被 `fastdl.raftmodding.com.evil.tld` 绕过）。
-  2. 下载到临时文件，校验 SHA512 通过后才原子替换（官方直接覆盖，失败会留下半个文件）。
+- **安全加固**：
+  1. `coremod_url` / `assets_url` 必须 `https` 且 host 属于白名单 `{fastdl.raftmodding.com, www.raftmodding.com}`，用 `Uri.Host` 精确比较，**不用字符串前缀**（`https://fastdl.raftmodding.com.evil.tld/x.exe` 这类地址用前缀判断会被放过）。
+  2. 下载到临时文件，校验 SHA512 通过后才原子替换，避免中途失败留下半个文件。
   3. 下载超时 + 取消 + 断点信息（失败可重试，不用从头）。
   4. 显示进度与速率，可暂停/取消。
 - 校验失败：删除临时文件，保留旧版本，明确提示「校验失败，已保留现有 core」。
@@ -268,14 +267,14 @@ public interface IHashVerifier
 ### 6.4 Mod 管理
 
 - 扫描 `<gamePath>\mods\*.rmod`（含 `.lnk`）。用 `ZipArchive` 读每个包的 `modinfo.json`，取 `name / author / version / description / icon / banner / updateUrl`。
-- **启用/禁用**：官方通过把文件重命名来实现（coremod 只认 `*.rmod`）。本客户端用同样的机制：禁用 = 重命名为 `<name>.rmod.disabled`。**但必须先验证 coremod 确实只扫 `*.rmod`**（`ModManagerPage.cs:121,581` 已确认：`x.Name.ToLower().EndsWith(".rmod")`），所以 `.rmod.disabled` 不会被加载。这点与官方 UI 行为一致。
-- **拖入安装**：接受 `.rmod` 文件，校验 ZIP 结构 + `modinfo.json` 存在 + slug 合法（`^(?!\d+$)[a-z0-9\-._]+$`，≤64），然后复制到 mods 目录。**不信任包内文件名**（官方 `ModInstaller.cs:212` 直接用 JSON 里的文件名索引字典会抛异常，本客户端只按固定名 `modinfo.json` 取）。
+- **启用/禁用**：coremod 只认 `*.rmod`，因此禁用 = 重命名为 `<name>.rmod.disabled`。已确认 `coremod` 的扫描逻辑只按扩展名判断（`x.Name.ToLower().EndsWith(".rmod")`），所以 `.rmod.disabled` 不会被加载。
+- **拖入安装**：接受 `.rmod` 文件，校验 ZIP 结构 + `modinfo.json` 存在 + slug 合法（`^(?!\d+$)[a-z0-9\-._]+$`，≤64），然后复制到 mods 目录。**不信任包内文件名**，只按固定名 `modinfo.json` 取，避免包内声明的路径把读取引到包外。
 - **卸载**：移到回收站（`Microsoft.VisualBasic.FileIO.FileSystem.DeleteFile` + `RecycleOption.SendToRecycleBin`），不是直接删。
 - **冲突检测**：比较两个 mod 的 `modinfo.json` 中 `excludedFiles` 与已知的资源路径重叠；同时按 `name` 判重。
 
 ### 6.5 Mod 市场
 
-- `GET https://www.raftmodding.com/api/v1/mods` → 917KB 全量 JSON 数组（**已实测：不支持 page/limit/search/category 参数，全部返回同一份**）。
+- `GET https://www.raftmodding.com/api/v1/mods` → 全量 JSON 数组（约 917KB，**不支持 page/limit/search/category 参数，任何组合都返回同一份**）。
 - 客户端本地缓存到 `%APPDATA%\RaftModLoader\cache\market.json`，1 小时 TTL。
 - 搜索/分类/排序全部本地做。
 - 单个 mod 详情：`GET /api/v1/mods/<id>`（**注意用 `id` 不是 slug**，如 `morestorages` 而非 `more-storages`）。
@@ -297,29 +296,29 @@ public interface IHashVerifier
 
 ---
 
-## 7. 相对官方的修复清单
+## 7. 加固清单
 
-| # | 官方问题 | 本客户端 |
+| # | 常见问题 | 本客户端 |
 |---|---|---|
-| 1 | 更新 URL 用 `StartsWith` 前缀比较 | `Uri.Host` 精确白名单 |
-| 2 | coremod/assets 下载完全无域名校验 | 同上 |
+| 1 | 用字符串前缀判断下载地址来源 | `Uri.Host` 精确白名单 |
+| 2 | 下载地址完全不校验域名 | 每个地址都过 `UrlGuard` |
 | 3 | 直接覆盖目标文件，失败留半个文件 | 临时文件 + 原子替换 |
-| 4 | 下载回调不检查 `e.Error` | 每步检查并上报 |
-| 5 | `while(...) await Task.Delay(1)` 忙等 | `Task.WhenAll` |
-| 6 | 无超时的 `DownloadStringTaskAsync` | 全链路 `CancellationToken` + 超时 |
-| 7 | JSON 注入不备份原文件 | 改前备份到 `cache\backup\`，可一键还原 |
-| 8 | 卸载不清 `.rmod` 关联与 `rmllauncher` scheme | 完整清理 |
-| 9 | 禁用 mod 靠改名但 UI 不提示 | 明确状态 + 可撤销 |
-| 10 | 崩溃日志自动传 pastebin（含本地路径/用户名） | 默认关闭，需显式同意，可预览内容 |
-| 11 | `FileInfo.Length` 在文件不存在时抛异常 | 先 `File.Exists` 再取长度 |
-| 12 | 无 UAC 提权但写游戏目录可能失败无提示 | 写失败时明确提示需要管理员权限并给出指引 |
+| 4 | 下载回调不检查错误 | 每步检查并上报 |
+| 5 | 用极短间隔忙等轮询 | `Task.WhenAll` / 顺序 await |
+| 6 | 请求无超时 | 全链路 `CancellationToken` + 超时 |
+| 7 | 改游戏文件前不备份 | 改前备份到 `cache\backup\`，可一键还原 |
+| 8 | 卸载时不清文件关联与 URI scheme | 完整清理 |
+| 9 | 禁用 mod 靠改名但界面不提示 | 明确状态 + 可撤销 |
+| 10 | 崩溃日志自动上传（可能含本地路径/用户名） | 默认关闭，需显式同意，可预览内容 |
+| 11 | 文件不存在时先取长度导致异常 | 先 `File.Exists` 再取长度 |
+| 12 | 写游戏目录失败时无提示 | 明确提示需要管理员权限并给出指引 |
 
 ---
 
 ## 8. 测试策略
 
 - **Core 层单测**（xUnit）：INI 读写往返、hash 校验、ZIP modinfo 解析、URI 白名单（含 `fastdl.raftmodding.com.evil.tld` 这类绕过用例）、注入状态四态判定、配置迁移。
-- **集成测试**（手动，本机真实环境）：探测 `<Steam 库>\steamapps\common\Raft`、扫描 mod 目录、切换注入模式、实际启动游戏。
+- **集成测试**（手动，真实环境）：探测 `<Steam 库>\steamapps\common\Raft`、扫描 mod 目录、切换注入模式、实际启动游戏。
 - **UI 冒烟**：每页能加载、不崩、暗色下对比度达标。
 - 不做自动化 UI 测试（WinUI 3 的 UI 自动化成本过高，收益低）。
 
